@@ -1,22 +1,22 @@
-// components/DashboardNav.tsx
-"use client";
+"use client"
 
-import { useState } from "react";
+import { useState } from "react"
+import ConnectSupabaseForm from "@/components/ConnectSupabaseForm"
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, Database, Play, FileText, Cloud } from "lucide-react";
-import ConnectSupabaseForm from "@/components/ConnectSupabaseForm";
+
 
 export default function DashboardNav() {
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(false)
 
-  const openModal = () => setShowModal(true);
-  const closeModal = () => setShowModal(false);
+  const openModal = () => setShowModal(true)
+  const closeModal = () => setShowModal(false)
 
   return (
     <>
       <nav className="flex flex-col h-full space-y-2 p-4">
-        <Link href="/dashboard">
+      <Link href="/dashboard">
           <Button variant="ghost" className="w-full justify-start">
             <LayoutDashboard className="mr-2 h-4 w-4" />
             Dashboard
@@ -40,6 +40,7 @@ export default function DashboardNav() {
             Results
           </Button>
         </Link>
+
         <div className="mt-auto pt-4">
           <Button variant="ghost" className="w-full justify-start" onClick={openModal}>
             <Cloud className="mr-2 h-4 w-4" />
@@ -50,20 +51,21 @@ export default function DashboardNav() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80">
-          <div className="bg-black rounded shadow-lg w-full max-w-3xl p-6 relative text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg p-6 relative">
             {/* Close Button */}
             <button
               onClick={closeModal}
-              className="absolute top-2 right-2 text-xl font-bold hover:text-red-600"
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
               aria-label="Close modal"
             >
-              &times;
+              ×
             </button>
             <ConnectSupabaseForm onClose={closeModal} />
           </div>
         </div>
       )}
     </>
-  );
+  )
 }
+

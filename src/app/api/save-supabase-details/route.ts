@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       ]);
 
     if (error) {
-      console.error("Error saving details:", error);
+      console.log("Error saving details:", error);
       return NextResponse.json(
         { message: "Failed to save details", error },
         { status: 500 }

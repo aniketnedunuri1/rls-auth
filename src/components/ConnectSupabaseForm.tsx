@@ -1,244 +1,114 @@
-// components/ConnectSupabaseForm.tsx
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-
-interface ProjectDetails {
-  projectUrl: string;
-  projectId: string;
-}
-
-interface DbDetails {
-  host: string;
-  port: string;
-  database: string;
-  username: string;
-  password: string;
-}
-
-interface ApiKeys {
-  anonKey: string;
-  serviceRoleKey: string;
-}
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { InfoIcon } from "lucide-react"
+import type React from "react"
 
 interface ConnectSupabaseFormProps {
-  onClose: () => void;
+  onClose: () => void
 }
 
 export default function ConnectSupabaseForm({ onClose }: ConnectSupabaseFormProps) {
-  const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [projectDetails, setProjectDetails] = useState<ProjectDetails>({
-    projectUrl: "",
-    projectId: "",
-  });
-  const [dbDetails, setDbDetails] = useState<DbDetails>({
-    host: "",
-    port: "5432",
-    database: "",
-    username: "",
-    password: "",
-  });
-  const [apiKeys, setApiKeys] = useState<ApiKeys>({
-    anonKey: "",
-    serviceRoleKey: "",
-  });
-  const [schema, setSchema] = useState("public");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleNext = () => setStep((prev) => prev + 1);
-  const handleBack = () => setStep((prev) => prev - 1);
+  const router = useRouter()
+  const [connectionString, setConnectionString] = useState("")
+  const [password, setPassword] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError("");
-
-    const payload = {
-      projectDetails,
-      dbDetails,
-      apiKeys,
-      schema,
-    };
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError("")
 
     try {
       const res = await fetch("/api/save-supabase-details", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        throw new Error("Failed to save details");
-      }
-      onClose();
-      router.push("/dashboard");
+        body: JSON.stringify({
+          connectionString,
+          password,
+        }),
+      })
+
+      if (!res.ok) throw new Error("Failed to save connection details")
+
+      onClose()
+      router.push("/dashboard")
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message)
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {step === 1 && (
-        <div>
-          <h2 className="text-xl font-semibold mb-2 text-white">Step 1: Project Details</h2>
-          <label className="block mb-2 text-white">
-            Supabase Project URL:
+    <Card className="w-full max-w-lg bg-white">
+      <CardHeader>
+        <CardTitle className="text-gray-900">Connect to your project</CardTitle>
+        <CardDescription className="text-gray-500">
+          Get the connection details from your Supabase project settings
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-6">
+          <Alert className="bg-gray-50 border border-gray-200">
+            <InfoIcon className="h-4 w-4 text-gray-500" />
+            <AlertDescription className="text-gray-600">
+              To find your connection details:
+              <ol className="ml-4 mt-2 list-decimal space-y-1">
+                <li>Go to your Supabase project dashboard</li>
+                <li>Click on Project Settings</li>
+                <li>Navigate to Database</li>
+                <li>Find the Connection String section</li>
+                <li>Copy the Direct Connection string</li>
+              </ol>
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-2">
+            <Label htmlFor="connectionString" className="text-gray-700">
+              Direct Connection String
+            </Label>
             <Input
-              type="text"
-              className="mt-1"
-              value={projectDetails.projectUrl}
-              onChange={(e) =>
-                setProjectDetails({ ...projectDetails, projectUrl: e.target.value })
-              }
+              id="connectionString"
+              value={connectionString}
+              onChange={(e) => setConnectionString(e.target.value)}
+              placeholder="postgresql://postgres:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres"
+              className="border-gray-200 text-gray-900 placeholder-gray-400"
               required
             />
-          </label>
-          <label className="block mb-2 text-white">
-            Supabase Project ID (optional):
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-gray-700">
+              Database Password
+            </Label>
             <Input
-              type="text"
-              className="mt-1"
-              value={projectDetails.projectId}
-              onChange={(e) =>
-                setProjectDetails({ ...projectDetails, projectId: e.target.value })
-              }
-            />
-          </label>
-        </div>
-      )}
-      {step === 2 && (
-        <div>
-          <h2 className="text-xl font-semibold mb-2 text-white">Step 2: Database Connection Details</h2>
-          <label className="block mb-2 text-white">
-            Host:
-            <Input
-              type="text"
-              className="mt-1"
-              value={dbDetails.host}
-              onChange={(e) =>
-                setDbDetails({ ...dbDetails, host: e.target.value })
-              }
-              required
-            />
-          </label>
-          <label className="block mb-2 text-white">
-            Port:
-            <Input
-              type="number"
-              className="mt-1"
-              value={dbDetails.port}
-              onChange={(e) =>
-                setDbDetails({ ...dbDetails, port: e.target.value })
-              }
-              required
-            />
-          </label>
-          <label className="block mb-2 text-white">
-            Database Name:
-            <Input
-              type="text"
-              className="mt-1"
-              value={dbDetails.database}
-              onChange={(e) =>
-                setDbDetails({ ...dbDetails, database: e.target.value })
-              }
-              required
-            />
-          </label>
-          <label className="block mb-2 text-white">
-            Username:
-            <Input
-              type="text"
-              className="mt-1"
-              value={dbDetails.username}
-              onChange={(e) =>
-                setDbDetails({ ...dbDetails, username: e.target.value })
-              }
-              required
-            />
-          </label>
-          <label className="block mb-2 text-white">
-            Password:
-            <Input
+              id="password"
               type="password"
-              className="mt-1"
-              value={dbDetails.password}
-              onChange={(e) =>
-                setDbDetails({ ...dbDetails, password: e.target.value })
-              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your database password"
+              className="border-gray-200 text-gray-900 placeholder-gray-400"
               required
             />
-          </label>
-        </div>
-      )}
-      {step === 3 && (
-        <div>
-          <h2 className="text-xl font-semibold mb-2 text-white">Step 3: API Keys</h2>
-          <label className="block mb-2 text-white">
-            Supabase Anon/Public API Key:
-            <Input
-              type="text"
-              className="mt-1"
-              value={apiKeys.anonKey}
-              onChange={(e) =>
-                setApiKeys({ ...apiKeys, anonKey: e.target.value })
-              }
-              required
-            />
-          </label>
-          <label className="block mb-2 text-white">
-            Supabase Service Role Key:
-            <Input
-              type="text"
-              className="mt-1"
-              value={apiKeys.serviceRoleKey}
-              onChange={(e) =>
-                setApiKeys({ ...apiKeys, serviceRoleKey: e.target.value })
-              }
-              required
-            />
-          </label>
-        </div>
-      )}
-      {step === 4 && (
-        <div>
-          <h2 className="text-xl font-semibold mb-2 text-white">Step 4: Additional Options</h2>
-          <label className="block mb-2 text-white">
-            Schema Name (default is "public"):
-            <Input
-              type="text"
-              className="mt-1"
-              value={schema}
-              onChange={(e) => setSchema(e.target.value)}
-            />
-          </label>
-        </div>
-      )}
-      <div className="flex justify-between mt-4">
-        {step > 1 && (
-          <Button variant="outline" type="button" onClick={handleBack}>
-            Back
+          </div>
+
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+        </CardContent>
+        <CardFooter>
+          <Button type="submit" className="w-full bg-gray-900 text-white hover:bg-gray-800" disabled={isSubmitting}>
+            {isSubmitting ? "Connecting..." : "Connect"}
           </Button>
-        )}
-        {step < 4 && (
-          <Button type="button" onClick={handleNext}>
-            Next
-          </Button>
-        )}
-        {step === 4 && (
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Submit"}
-          </Button>
-        )}
-      </div>
-      {error && <p className="text-red-400 mt-2">{error}</p>}
-    </form>
-  );
+        </CardFooter>
+      </form>
+    </Card>
+  )
 }
+

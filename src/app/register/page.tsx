@@ -1,4 +1,4 @@
-// pages/login.tsx
+// pages/register.tsx
 "use client";
 
 import { useState } from "react";
@@ -15,39 +15,39 @@ import {
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
 
-    // Authenticate with Supabase
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
     });
 
-    if (signInError) {
-      setError(signInError.message);
+    if (signUpError) {
+      setError(signUpError.message);
       return;
     }
 
-    // Redirect to the Connect Supabase page for adding project details
-    window.location.href = "/dashboard";
+    setSuccess("Registration successful! Please check your email to confirm your account.");
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
       <Card className="w-[350px]">
         <CardHeader>
-          <CardTitle>Login to Supabase</CardTitle>
-          <CardDescription>Enter your Supabase account credentials</CardDescription>
+          <CardTitle>Register</CardTitle>
+          <CardDescription>Create a new account</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleRegister}>
             <div className="grid w-full items-center gap-4">
               <div className="flex flex-col space-y-1.5">
                 <Input
@@ -68,12 +68,13 @@ export default function LoginPage() {
                 />
               </div>
               {error && <p className="text-red-500 text-sm">{error}</p>}
+              {success && <p className="text-green-500 text-sm">{success}</p>}
             </div>
             <CardFooter className="flex justify-between p-0 pt-4">
-              <Link href="/register">
-                <Button variant="outline">Register</Button>
+              <Link href="/">
+                <Button variant="outline">Login</Button>
               </Link>
-              <Button type="submit">Login</Button>
+              <Button type="submit">Register</Button>
             </CardFooter>
           </form>
         </CardContent>

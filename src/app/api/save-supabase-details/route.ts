@@ -1,33 +1,38 @@
 // app/api/save-supabase-details/route.ts
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
   try {
-    const { projectDetails, dbDetails, apiKeys, schema } = await req.json();
-    // In a real implementation, extract the user ID from the authenticated session.
-    const user_id = req.headers.get("x-user-id") || "unknown";
+    // Extract the connection details from the request body.
+    const { connectionString, password } = await req.json();
 
-    const { data, error } = await supabase
-      .from("user_supabase_details")
-      .insert([
-        {
-          user_id,
-          project_url: projectDetails.projectUrl,
-          project_id: projectDetails.projectId,
-          host: dbDetails.host,
-          port: dbDetails.port,
-          database: dbDetails.database,
-          username: dbDetails.username,
-          password: dbDetails.password,
-          anon_key: apiKeys.anonKey,
-          service_role_key: apiKeys.serviceRoleKey,
-          schema,
-        },
-      ]);
+    // Create a Supabase client for this route using the request cookies.
+    const supabaseServer = createRouteHandlerClient({ cookies });
+
+    // Retrieve the current session to obtain the authenticated user's ID.
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabaseServer.auth.getSession();
+
+    if (sessionError || !session?.user) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    const user_id = session.user.id;
+
+    // Update the "user-information" table with the connection details.
+    const { data, error } = await supabaseServer
+      .from("user-information")
+      .update({
+        pg_url: connectionString,
+        pg_password: password,
+      })
+      .eq("id", user_id);
 
     if (error) {
-      console.log("Error saving details:", error);
+      console.error("Error saving connection details:", error);
       return NextResponse.json(
         { message: "Failed to save details", error },
         { status: 500 }
@@ -39,6 +44,7 @@ export async function POST(req: Request) {
       { status: 200 }
     );
   } catch (err) {
+    console.error("Server error:", err);
     return NextResponse.json(
       { message: "Server error", err },
       { status: 500 }

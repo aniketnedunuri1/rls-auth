@@ -1,30 +1,38 @@
-"use client"
+// components/ConnectSupabaseForm.tsx
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { InfoIcon } from "lucide-react"
-import type React from "react"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { InfoIcon } from "lucide-react";
+import type React from "react";
 
 interface ConnectSupabaseFormProps {
-  onClose: () => void
+  onClose: () => void;
 }
 
 export default function ConnectSupabaseForm({ onClose }: ConnectSupabaseFormProps) {
-  const router = useRouter()
-  const [connectionString, setConnectionString] = useState("")
-  const [password, setPassword] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState("")
+  const router = useRouter();
+  const [connectionString, setConnectionString] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    setError("")
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError("");
 
     try {
       const res = await fetch("/api/save-supabase-details", {
@@ -34,25 +42,25 @@ export default function ConnectSupabaseForm({ onClose }: ConnectSupabaseFormProp
           connectionString,
           password,
         }),
-      })
+      });
 
-      if (!res.ok) throw new Error("Failed to save connection details")
+      if (!res.ok) throw new Error("Failed to save connection details");
 
-      onClose()
-      router.push("/dashboard")
+      onClose();
+      router.push("/dashboard");
     } catch (err: any) {
-      setError(err.message)
+      setError(err.message);
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <Card className="w-full max-w-lg bg-white">
       <CardHeader>
         <CardTitle className="text-gray-900">Connect to your project</CardTitle>
         <CardDescription className="text-gray-500">
-          Get the connection details from your Supabase project settings
+          Get the connection details from your Supabase project settings.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -103,12 +111,15 @@ export default function ConnectSupabaseForm({ onClose }: ConnectSupabaseFormProp
           {error && <p className="text-red-500 text-sm">{error}</p>}
         </CardContent>
         <CardFooter>
-          <Button type="submit" className="w-full bg-gray-900 text-white hover:bg-gray-800" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="w-full bg-gray-900 text-white hover:bg-gray-800"
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Connecting..." : "Connect"}
           </Button>
         </CardFooter>
       </form>
     </Card>
-  )
+  );
 }
-

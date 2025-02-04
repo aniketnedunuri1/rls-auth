@@ -132,10 +132,14 @@ export async function POST(req: Request): Promise<Response> {
           }
 
           let result;
+          
           try {
             result = JSON.parse(content);
           } catch (parseError) {
             console.error("Error parsing OpenAI response:", parseError);
+            console.error("Response content:", content);  
+            console.log("Raw OpenAI Response:", content);
+
             throw new Error("Invalid response format from OpenAI");
           }
 

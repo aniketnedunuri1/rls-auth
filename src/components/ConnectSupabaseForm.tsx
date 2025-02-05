@@ -81,13 +81,13 @@ export default function ConnectSupabaseForm({ onClose }: ConnectSupabaseFormProp
 
           <div className="space-y-2">
             <Label htmlFor="connectionString" className="text-gray-700">
-              Direct Connection String
+              NEXT_PUBLIC_SUPABASE_URL
             </Label>
             <Input
               id="connectionString"
               value={connectionString}
               onChange={(e) => setConnectionString(e.target.value)}
-              placeholder="postgresql://postgres:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres"
+              placeholder="https://abcdefghijklmnop.supabase.co"
               className="border-gray-200 text-gray-900 placeholder-gray-400"
               required
             />
@@ -95,14 +95,14 @@ export default function ConnectSupabaseForm({ onClose }: ConnectSupabaseFormProp
 
           <div className="space-y-2">
             <Label htmlFor="password" className="text-gray-700">
-              Database Password
+              NEXT_PUBLIC_SUPABASE_ANON_KEY
             </Label>
             <Input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your database password"
+              placeholder="Enter your anon key"
               className="border-gray-200 text-gray-900 placeholder-gray-400"
               required
             />

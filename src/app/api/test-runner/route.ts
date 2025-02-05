@@ -244,13 +244,22 @@ function buildSuiteInstruction(suites: string[]): string {
 /**
  * Generates a single prompt that references all test suites at once.
  */
+/**
+ * Generates a prompt that instructs the LLM to output a strict JSON test suite.
+ *
+ * @param schema - The database schema as a string.
+ * @param rls - The RLS policies as a string.
+ * @param additionalContext - A user-supplied description outlining what should be tested.
+ * @param testSuites - An array of test suite topics.
+ * @returns A string containing the prompt to send to the LLM.
+ */
 function generateLLMPrompt(
   schema: string,
   rls: string,
   additionalContext: string,
   testSuites: string[]
 ): string {
-  const suiteList = buildSuiteInstruction(testSuites);
+  const suiteList = testSuites.map((suite) => `- ${suite}`).join("\n");
 
   return `
 Context:
@@ -263,10 +272,22 @@ ${rls}
 User Description:
 ${additionalContext}
 
-Test Suite: ${suiteList}
+Test Suite:
+${suiteList}
 
 Task:
 Using the provided information, generate a JSON object that defines a comprehensive suite of tests for the user's database. You must act as a malicious actor whose goal is to infiltrate the database by finding every possible vulnerability in the schema and RLS policies. The generated tests will later be executed via a Supabase client that uses only the public URL and anon key. Therefore, the queries you generate must be written in Supabase TypeScript format.
+
+IMPORTANT:  
+Every query must include a return statement at the end that returns a JSON‑serializable object. For example, if your query code snippet is:
+  
+  const { data, error } = await supabase.from("table_name").select("*").limit(1);
+  
+then you must add at the end:
+  
+  return { data, error };
+  
+This ensures that the evaluated code produces a value that is valid JSON.
 
 The JSON object must have a property "test_categories" (an array). Each test category must include:
   - "id": A unique identifier string for the test category.
@@ -281,8 +302,9 @@ Each test case object must have these properties:
   - "query": A Supabase TypeScript code snippet that executes a query using the Supabase client. For example:
   
     const { data, error } = await supabase.from("table_name").select("*").limit(1);
+    return { data, error };
   
-  The query must be designed to test the database for vulnerabilities (e.g. bypassing RLS policies, SQL injection, privilege escalation, etc.) and must be executable using only the public URL and anon key.
+  The query must be designed to test the database for vulnerabilities (e.g. bypassing RLS policies, SQL injection, unauthorized updates/inserts, etc.) and must be executable using only the public URL and anon key.
   
   - "expected": A JSON object representing the expected output from Supabase when executing the query. The expected output must follow one of these formats:
 
@@ -344,21 +366,19 @@ For an UPSERT query:
   "statusText": "Created"
 }
 
-Requirements (remember, all backslashes in strings must be DOUBLE-ESCAPED for valid JSON via JSON.parse()):
+Requirements:
 1. Generate at least three test categories (for example, "RLS Testing", "Authentication Testing", and "SQL Injection Testing").
 2. Each test category must include at least 5 unique test cases.
 3. All SQL queries must be executable with only public access (i.e. using only the public URL and anon key).
-4. The "query" property in each test case must be a Supabase TypeScript code snippet exactly in the format shown above.
+4. The "query" property in each test case must be a Supabase TypeScript code snippet exactly in the format shown above, including the required return statement.
 5. The "expected" property must be a JSON object exactly matching one of the response formats provided.
 6. Output MUST be strictly valid JSON. Do not include any extra text, commentary, markdown formatting, or extra keys.
 7. Do NOT truncate your output; generate every single test case necessary to thoroughly assess the schema and RLS policies.
 8. You are acting as a malicious actor trying to break into the database. Your queries must attempt to bypass RLS policies, exploit SQL injections, perform unauthorized updates/inserts, and cover every potential edge case for infiltration.
 
-
 Generate the JSON output strictly following these instructions.
 `;
 }
-
 export async function POST(req: Request): Promise<Response> {
   try {
     const { schema, rlsPolicies, additionalContext } = await req.json();

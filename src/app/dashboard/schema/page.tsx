@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Info, ChevronDown, ChevronUp, Play, CheckCircle, AlertTriangle, XCircle, Loader2 } from "lucide-react"
 import ReactFlow, { Controls, Background, useNodesState, useEdgesState } from "reactflow"
-import "reactflow/dist/style.css"
+import "reactflow/dist/style.css
 import { useDispatch, useSelector } from "react-redux"
 import { setSchema, setRLSPolicies, setAdditionalContext, setSupabaseConfig } from "@/lib/schemaSlice"
 import type { RootState } from "@/lib/store"

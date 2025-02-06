@@ -17,6 +17,7 @@ import { useDispatch, useSelector } from "react-redux"
 import { setSchema, setRLSPolicies, setAdditionalContext, setSupabaseConfig } from "@/lib/schemaSlice"
 import type { RootState } from "@/lib/store"
 import Image from "next/image"
+import RoleSelector from "@/components/role-selector"
 
 
 interface ExpectedOutcome {
@@ -53,224 +54,6 @@ const databaseProviders: DatabaseProvider[] = [
   { id: "aws", name: "AWS", logo: "/placeholder.svg?height=24&width=24" },
   { id: "azure", name: "Azure", logo: "/placeholder.svg?height=24&width=24" },
 ]
-
-// Mock test data
-
-const mockTestCategories: TestCategory[] = [
-  {
-    "id": "rls-testing",
-    "name": "RLS Testing",
-    "description": "Tests that verify row-level security (RLS) policies are correctly enforced.",
-    "tests": [
-      {
-        "id": "rls-1",
-        "name": "Document Access by Owner",
-        "description": "Ensures that users can only access documents they own or if they are admins.",
-        "query": "SELECT * FROM documents WHERE owner_id = current_setting('app.current_user_id')::int;",
-        "expected": {
-          "data": [],
-          "status": 200,
-          "statusText": "OK"
-        }
-      },
-      {
-        "id": "rls-2",
-        "name": "Cross-User Document Access Attempt",
-        "description": "Attempts to access another user's documents without admin privileges.",
-        "query": "SELECT * FROM documents WHERE owner_id != current_setting('app.current_user_id')::int;",
-        "expected": {
-          "data": [],
-          "status": 200,
-          "statusText": "OK"
-        }
-      },
-      {
-        "id": "rls-3",
-        "name": "Restricted Update on Other Users' Documents",
-        "description": "Attempts to update a document owned by another user.",
-        "query": "UPDATE documents SET title = 'Hacked Title' WHERE owner_id != current_setting('app.current_user_id')::int;",
-        "expected": {
-          "error": {
-            "code": "42501",
-            "message": "permission denied for relation documents"
-          },
-          "status": 403,
-          "statusText": "Forbidden"
-        }
-      },
-      {
-        "id": "rls-4",
-        "name": "Comment Access via Document Ownership",
-        "description": "Verifies that users can only access comments linked to documents they own or have admin access to.",
-        "query": "SELECT * FROM comments WHERE document_id IN (SELECT id FROM documents WHERE owner_id = current_setting('app.current_user_id')::int);",
-        "expected": {
-          "data": [],
-          "status": 200,
-          "statusText": "OK"
-        }
-      },
-      {
-        "id": "rls-5",
-        "name": "Prevent Unauthorized Comment Updates",
-        "description": "Ensures that users cannot update comments posted by others.",
-        "query": "UPDATE comments SET comment = 'Hacked Comment' WHERE user_id != current_setting('app.current_user_id')::int;",
-        "expected": {
-          "error": {
-            "code": "42501",
-            "message": "permission denied for relation comments"
-          },
-          "status": 403,
-          "statusText": "Forbidden"
-        }
-      },
-      {
-        "id": "rls-6",
-        "name": "Prevent Access to Inactive Users",
-        "description": "Verifies that inactive users cannot access any documents.",
-        "query": "SELECT * FROM documents WHERE owner_id = current_setting('app.current_user_id')::int AND (SELECT is_active FROM users WHERE id = current_setting('app.current_user_id')::int) = FALSE;",
-        "expected": {
-          "data": [],
-          "status": 200,
-          "statusText": "OK"
-        }
-      },
-      {
-        "id": "rls-7",
-        "name": "Insert Comment as Another User",
-        "description": "Attempts to insert a comment while impersonating another user.",
-        "query": "INSERT INTO comments (document_id, user_id, comment) VALUES (1, 2, 'Malicious Comment');",
-        "expected": {
-          "error": {
-            "code": "23514",
-            "message": "new row violates row-level security policy for table \"comments\""
-          },
-          "status": 403,
-          "statusText": "Forbidden"
-        }
-      },
-      {
-        "id": "rls-8",
-        "name": "Document Ownership Modification Attempt",
-        "description": "Attempts to change the ownership of a document to another user.",
-        "query": "UPDATE documents SET owner_id = 2 WHERE id = 1;",
-        "expected": {
-          "error": {
-            "code": "42501",
-            "message": "permission denied for relation documents"
-          },
-          "status": 403,
-          "statusText": "Forbidden"
-        }
-      },
-      {
-        "id": "rls-9",
-        "name": "Access Other Users' Emails",
-        "description": "Attempts to select emails from the users table without admin privileges.",
-        "query": "SELECT email FROM users;",
-        "expected": {
-          "error": {
-            "code": "42501",
-            "message": "permission denied for relation users"
-          },
-          "status": 403,
-          "statusText": "Forbidden"
-        }
-      },
-      {
-        "id": "rls-10",
-        "name": "Insert Document for Another User",
-        "description": "Attempts to insert a document with another user's owner_id.",
-        "query": "INSERT INTO documents (owner_id, title, content) VALUES (2, 'Malicious Document', 'Hacked Content');",
-        "expected": {
-          "error": {
-            "code": "23514",
-            "message": "new row violates row-level security policy for table \"documents\""
-          },
-          "status": 403,
-          "statusText": "Forbidden"
-        }
-      }
-    ]
-  },
-  {
-    "id": "auth-testing",
-    "name": "Authentication Testing",
-    "description": "Tests to ensure that unauthorized access or actions are blocked.",
-    "tests": [
-      {
-        "id": "auth-1",
-        "name": "Access Without Authentication",
-        "description": "Tries to access a protected table without being authenticated.",
-        "query": "SELECT * FROM documents;",
-        "expected": {
-          "error": {
-            "code": "42501",
-            "message": "permission denied for relation documents"
-          },
-          "status": 403,
-          "statusText": "Forbidden"
-        }
-      },
-      {
-        "id": "auth-2",
-        "name": "Prevent Unauthorized User Creation",
-        "description": "Attempts to create a user without admin privileges.",
-        "query": "INSERT INTO users (username, role, email, is_active) VALUES ('hacker', 'admin', 'hacker@example.com', TRUE);",
-        "expected": {
-          "error": {
-            "code": "42501",
-            "message": "permission denied for relation users"
-          },
-          "status": 403,
-          "statusText": "Forbidden"
-        }
-      },
-      {
-        "id": "auth-3",
-        "name": "Prevent Role Modification",
-        "description": "Attempts to change their own role to 'admin'.",
-        "query": "UPDATE users SET role = 'admin' WHERE id = current_setting('app.current_user_id')::int;",
-        "expected": {
-          "error": {
-            "code": "42501",
-            "message": "permission denied for relation users"
-          },
-          "status": 403,
-          "statusText": "Forbidden"
-        }
-      },
-      {
-        "id": "auth-4",
-        "name": "Insert Document as Anonymous User",
-        "description": "Attempts to insert a document without being authenticated.",
-        "query": "INSERT INTO documents (owner_id, title, content) VALUES (1, 'Anonymous Document', 'Test Content');",
-        "expected": {
-          "error": {
-            "code": "42501",
-            "message": "permission denied for relation documents"
-          },
-          "status": 403,
-          "statusText": "Forbidden"
-        }
-      },
-      {
-        "id": "auth-5",
-        "name": "Access Other Users' Roles",
-        "description": "Attempts to select roles from the users table without admin privileges.",
-        "query": "SELECT role FROM users;",
-        "expected": {
-          "error": {
-            "code": "42501",
-            "message": "permission denied for relation users"
-          },
-          "status": 403,
-          "statusText": "Forbidden"
-        }
-      }
-    ]
-  }
-]
-
 export default function SchemaPage() {
   const dispatch = useDispatch()
   const { schema, rlsPolicies, additionalContext, supabaseConfig } = useSelector((state: RootState) => state.schema)
@@ -280,6 +63,7 @@ export default function SchemaPage() {
   const [testCategories, setTestCategories] = useState<TestCategory[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [activeProvider, setActiveProvider] = useState<string | null>(null)
+  const [selectedRole, setSelectedRole] = useState("anon")
   const [providerConfigs, setProviderConfigs] = useState<Record<string, { url: string; key: string }>>({
     supabase: { url: supabaseConfig.url, key: supabaseConfig.anonKey },
     firebase: { url: "", key: "" },
@@ -544,8 +328,9 @@ export default function SchemaPage() {
 
           <TabsContent value="tests" className="flex-1">
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
+              {/* <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold">Security Tests</h2>
+                <RoleSelector role={selectedRole} setRole={setSelectedRole} />
                 <Button onClick={generateTests} disabled={isGenerating}>
                   {isGenerating ? (
                     <>
@@ -556,7 +341,31 @@ export default function SchemaPage() {
                     "Generate Tests"
                   )}
                 </Button>
-              </div>
+              </div> */}
+              <div className="flex justify-between items-center">
+    <div className="flex items-center space-x-4">
+      <h2 className="text-lg font-semibold">Security Tests</h2>
+      <RoleSelector role={selectedRole} setRole={setSelectedRole} />
+    </div>
+    <Button
+      onClick={generateTests}
+      disabled={isGenerating}
+      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md"
+    >
+      {isGenerating ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Generating...
+        </>
+      ) : (
+        <>
+          Generate Tests 
+        </>
+      )}
+    </Button>
+  </div>
+              
+              
 
               <ScrollArea className="h-[calc(100vh-200px)]">
                 <div className="space-y-4 pr-4">

@@ -20,26 +20,6 @@ import { setSchema, setRLSPolicies, setAdditionalContext, setSupabaseConfig } fr
 import { setTestCategories, updateTestCaseResult } from "@/lib/testsSlice";
 import type { RootState } from "@/lib/store";
 import Image from "next/image";
-=======
-"use client"
-
-import { useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Info, ChevronDown, ChevronUp, Play, CheckCircle, AlertTriangle, XCircle, Loader2 } from "lucide-react"
-import ReactFlow, { Controls, Background, useNodesState, useEdgesState } from "reactflow"
-import "reactflow/dist/style.css
-import { useDispatch, useSelector } from "react-redux"
-import { setSchema, setRLSPolicies, setAdditionalContext, setSupabaseConfig } from "@/lib/schemaSlice"
-import type { RootState } from "@/lib/store"
-import Image from "next/image"
 
 
 interface ExpectedOutcome {

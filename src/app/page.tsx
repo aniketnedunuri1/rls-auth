@@ -1,8 +1,10 @@
-"use client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
+// pages/LoginPage.tsx
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 
 export default function LoginPage() {
   return (
@@ -26,12 +28,16 @@ export default function LoginPage() {
         </CardContent>
         <CardFooter className="flex justify-between">
           <Button variant="outline">Register</Button>
-          <Link href="/dashboard">
-            <Button>Login</Button>
-          </Link>
+          <div className="flex space-x-2">
+            <Link href="/dashboard">
+              <Button>Login</Button>
+            </Link>
+            <Link href="/api/connect-supabase/login">
+              <Button variant="outline">Sign in with Supabase</Button>
+            </Link>
+          </div>
         </CardFooter>
       </Card>
     </div>
-  )
+  );
 }
-

@@ -48,8 +48,16 @@
 // }
 
 import DashboardNav from "@/components/dashboard-nav"; 
+import { setProjects } from "@/lib/projectSlice";
+import { fetchProjects } from "@/lib/actions/project";
+import { store } from "@/lib/store";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const projects = await fetchProjects(); // Fetch projects on the server side
+
+  // Dispatch projects to Redux store on the server side
+  store.dispatch(setProjects(projects));
+  
   return (
     <div className="flex h-screen bg-background">
       <aside className="w-64 bg-card border-r">

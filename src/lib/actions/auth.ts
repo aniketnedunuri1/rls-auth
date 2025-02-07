@@ -7,6 +7,14 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+export async function getUser() {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return user;
+  }
+
 /**
  * Server Action to log a user in.
  * Expects a FormData with fields "email" and "password".

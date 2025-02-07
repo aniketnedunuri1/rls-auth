@@ -1,37 +1,21 @@
-"use client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
+// /app/page.tsx
+import { createServerSupabaseClient } from "@/lib/supabase-server-client";
+import { redirect } from "next/navigation";
 
-export default function LoginPage() {
+export default async function HomePage() {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    redirect("/dashboard");
+  }
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <Card className="w-[350px]">
-        <CardHeader>
-          <CardTitle>Login</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form>
-            <div className="grid w-full items-center gap-4">
-              <div className="flex flex-col space-y-1.5">
-                <Input id="email" placeholder="Email" type="email" />
-              </div>
-              <div className="flex flex-col space-y-1.5">
-                <Input id="password" placeholder="Password" type="password" />
-              </div>
-            </div>
-          </form>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button variant="outline">Register</Button>
-          <Link href="/dashboard">
-            <Button>Login</Button>
-          </Link>
-        </CardFooter>
-      </Card>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+      <h1 className="text-3xl font-bold mb-4">Welcome to Our App</h1>
+      <p className="mb-8">
+        Please <a href="/login" className="text-blue-500 underline">Login</a> or <a href="/register" className="text-blue-500 underline">Register</a> to continue.
+      </p>
     </div>
-  )
+  );
 }
-

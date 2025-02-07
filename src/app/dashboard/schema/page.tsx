@@ -19,6 +19,7 @@ import { setSchema, setRLSPolicies, setAdditionalContext, setSupabaseConfig } fr
 import { setTestCategories, updateTestCaseResult } from "@/lib/testsSlice";
 import type { RootState } from "@/lib/store";
 import Image from "next/image";
+import RoleSelector from "@/components/role-selector";
 
 interface ExpectedOutcome {
   data?: any;

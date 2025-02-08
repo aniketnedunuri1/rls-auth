@@ -7,34 +7,6 @@ import { redirect } from 'next/navigation';
 
 const prisma = new PrismaClient();
 
-
-  
-// export async function createProjectAction(formData: FormData): Promise<void> {
-// // Extract the project name from the form data
-//     const projectName = formData.get("projectName") as string;
-//     if (!projectName || !projectName.trim()) {
-//         throw new Error("Project name is required.");
-//     }
-
-//     // Get the current user using your getUser function
-//     const user = await getUser();
-//     if (!user) {
-//         throw new Error("User not logged in.");
-//     }
-
-//     // Create the project record in your database
-//     const project = await prisma.project.create({
-//         data: {
-//         name: projectName,
-//         userId: user.id, // use the user's ID from your auth system
-//         dbSchema: "",
-//         rlsSchema: "",
-//         additionalContext: "",
-//         },
-//     });
-
-//     redirect(`/dashboard/schema/${project.id}`);
-// }
   
 export async function createProjectAction(formData: FormData): Promise<{ id: string; name: string } | null> {
     const projectName = formData.get("projectName") as string;
@@ -86,12 +58,68 @@ export async function updateProjectAction(
   }
 }
 
-export async function fetchProjects(): Promise<{ id: string; name: string }[]> {
-  const user = await getUser();
-  if (!user) return [];
+// export async function fetchProjects() {
+//   const user = await getUser();
+//   if (!user) return [];
 
-  return await prisma.project.findMany({
+//   return await prisma.project.findMany({
+//     where: { userId: user.id },
+//     select: { 
+//       id: true, 
+//       name: true,
+//       dbSchema: true,
+//       rlsSchema: true,
+//       additionalContext: true
+//     },
+//   });
+
+  
+// }
+export async function fetchProjects(): Promise<{
+  projects: { id: string; name: string; dbSchema: string; rlsSchema: string; additionalContext?: string }[];
+  selectedProjectId: string | null;
+}> {
+  const user = await getUser();
+  if (!user) return { projects: [], selectedProjectId: null }; // ✅ Ensure consistent return structure
+
+  const projects = await prisma.project.findMany({
     where: { userId: user.id },
-    select: { id: true, name: true },
+    select: { 
+      id: true, 
+      name: true,
+      dbSchema: true,
+      rlsSchema: true,
+      additionalContext: true, // Prisma returns `string | null`
+    },
+  });
+
+  // ✅ Convert `null` to `undefined`
+  const formattedProjects = projects.map((project) => ({
+    ...project,
+    additionalContext: project.additionalContext ?? undefined, // Convert null -> undefined
+  }));
+
+  // Fetch the selected project ID from the database
+  const userData = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { selectedProjectId: true },
+  });
+
+  return { 
+    projects: formattedProjects, 
+    selectedProjectId: userData?.selectedProjectId ?? null // ✅ Ensure selectedProjectId is defined
+  };
+}
+
+
+export async function updateSelectedProject(projectId: string) {
+  const user = await getUser();
+  if (!user) {
+    throw new Error("User not logged in.");
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { selectedProjectId: projectId },
   });
 }

@@ -1,9 +1,10 @@
 // src/pages/SchemaPage.tsx
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { debounce } from "lodash"
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -15,11 +16,13 @@ import { Info, ChevronDown, ChevronUp, Play, Loader2 } from "lucide-react";
 import ReactFlow, { Controls, Background, useNodesState, useEdgesState } from "reactflow";
 import "reactflow/dist/style.css";
 import { useDispatch, useSelector } from "react-redux";
-import { setSchema, setRLSPolicies, setAdditionalContext, setSupabaseConfig } from "@/lib/schemaSlice";
+import { setSupabaseConfig } from "@/lib/schemaSlice";
+import { setSchema, setRLSPolicies, setAdditionalContext } from "@/lib/projectSlice";
 import { setTestCategories, updateTestCaseResult } from "@/lib/testsSlice";
 import type { RootState } from "@/lib/store";
 import Image from "next/image";
 import RoleSelector from "@/components/role-selector";
+import { updateProjectAction } from "@/lib/actions/project";
 
 interface ExpectedOutcome {
   data?: any;
@@ -58,6 +61,7 @@ const databaseProviders: DatabaseProvider[] = [
 
 export default function SchemaPage() {
   const dispatch = useDispatch()
+  const selectedProject = useSelector((state: RootState) => state.project.selectedProject);
   const { schema, rlsPolicies, additionalContext, supabaseConfig } = useSelector((state: RootState) => state.schema)
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
@@ -73,13 +77,75 @@ export default function SchemaPage() {
     azure: { url: "", key: "" },
   })
 
+  const debouncedUpdate = useCallback(
+    debounce(async (projectId: string, dbSchema: string, rlsSchema: string, additionalContext: string) => {
+      try {
+        const result = await updateProjectAction({
+          projectId,
+          dbSchema,
+          rlsSchema,
+          additionalContext
+        });
+        
+        if (!result.success) {
+          console.error("Failed to update project:", result.error);
+        }
+      } catch (error) {
+        console.error("Error updating project:", error);
+      }
+    }, 1000),
+    []
+  );
+
+  const handleSchemaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (!selectedProject?.id) return;
+    
+    const value = e.target.value;
+    // Update Redux
+    dispatch(setSchema({ projectId: selectedProject.id, value }));
+    // Update Database
+    debouncedUpdate(
+      selectedProject.id,
+      value,
+      selectedProject.rlsSchema || "",
+      selectedProject.additionalContext || ""
+    );
+  };
+
+  const handleRLSChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (!selectedProject?.id) return;
+    
+    const value = e.target.value;
+    dispatch(setRLSPolicies({ projectId: selectedProject.id, value }));
+    debouncedUpdate(
+      selectedProject.id,
+      selectedProject.dbSchema || "",
+      value,
+      selectedProject.additionalContext || ""
+    );
+  };
+
+  const handleContextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (!selectedProject?.id) return;
+    
+    const value = e.target.value;
+    dispatch(setAdditionalContext({ projectId: selectedProject.id, value }));
+    debouncedUpdate(
+      selectedProject.id,
+      selectedProject.dbSchema || "",
+      selectedProject.rlsSchema || "",
+      value
+    );
+  };
+  
   const toggleTest = (testId: string) => {
     setExpandedTests((prev) => (prev.includes(testId) ? prev.filter((id) => id !== testId) : [...prev, testId]))
   }
 
   const generateTests = async () => {
+    if (!selectedProject) return;
+    
     setIsGenerating(true);
-
     try {
       const response = await fetch("/api/test-runner", {
         method: "POST",
@@ -87,54 +153,20 @@ export default function SchemaPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          // include any user input you need:
-          schema,
-          rlsPolicies,
-          additionalContext,
+          schema: selectedProject.dbSchema,
+          rlsPolicies: selectedProject.rlsSchema,
+          additionalContext: selectedProject.additionalContext
         }),
       });
-
+  
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
       }
-
-      // The serverless route returns { results: [ { testSuite, results }, ... ] }
+  
       const data = await response.json();
-      console.log("dataaaa", data)
-
-      /*
-        data.results is an array of:
-        [
-          {
-            testSuite: "authentication-privilege-tests" | "rls-security" | ...,
-            results: {
-              "test_categories": [
-                {
-                  "id": "some-cat-id",
-                  "name": "Some Category",
-                  "description": "...",
-                  "tests": [
-                    { "id": "...", "name": "...", "description": "...", "query": "...", "expected": {...} },
-                    ...
-                  ]
-                },
-                ...
-              ]
-            }
-          },
-          { ... }
-        ]
-      */
-
-      // We can merge all test_categories from each testSuite into one array:
-      const allCategories: TestCategory[] = [];
-
       if (data.result && data.result.test_categories) {
-        allCategories.push(...data.result.test_categories);
+        setTestCategories(data.result.test_categories);
       }
-
-      setTestCategories(allCategories);
-
     } catch (error) {
       console.error("Error calling /api/test-runner:", error);
     } finally {
@@ -291,8 +323,8 @@ export default function SchemaPage() {
             <Label htmlFor="schema">Database Schema</Label>
             <Textarea
               id="schema"
-              value={schema}
-              onChange={(e) => dispatch(setSchema(e.target.value))}
+              value={selectedProject?.dbSchema || ""}
+              onChange={handleSchemaChange}
               placeholder="CREATE TABLE users (...);"
               className="mt-1 h-[200px] font-mono"
             />
@@ -301,8 +333,8 @@ export default function SchemaPage() {
             <Label htmlFor="rls">RLS Policies</Label>
             <Textarea
               id="rls"
-              value={rlsPolicies}
-              onChange={(e) => dispatch(setRLSPolicies(e.target.value))}
+              value={selectedProject?.rlsSchema || ""}
+              onChange={handleRLSChange}
               placeholder="CREATE POLICY..."
               className="mt-1 h-[200px] font-mono"
             />
@@ -311,8 +343,8 @@ export default function SchemaPage() {
             <Label htmlFor="rls">Additional Context</Label>
             <Textarea
               id="additional-context"
-              value={additionalContext}
-              onChange={(e) => dispatch(setAdditionalContext(e.target.value))}
+              value={selectedProject?.additionalContext || ""}
+              onChange={handleContextChange}
               placeholder="ADDITIONAL CONTEXT..."
               className="mt-1 h-[200px] font-mono"
             />

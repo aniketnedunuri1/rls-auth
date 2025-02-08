@@ -15,6 +15,7 @@ model User {
   email      String    @unique
   // Add additional fields as needed (e.g., name, password, etc.)
   projects   Project[]
+  selectedProjectId String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }

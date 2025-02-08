@@ -53,9 +53,9 @@ interface DatabaseProvider {
 }
 
 const databaseProviders: DatabaseProvider[] = [
-  { id: "supabase", name: "Supabase", logo: "/placeholder.svg?height=24&width=24" },
-  { id: "firebase", name: "Firebase", logo: "/placeholder.svg?height=24&width=24" },
-  { id: "aws", name: "AWS", logo: "/placeholder.svg?height=24&width=24" },
+  { id: "supabase", name: "Supabase", logo: "/logos/supabase.svg" },
+  { id: "firebase", name: "Firebase", logo: "/logos/firebase.svg" },
+  { id: "aws", name: "AWS", logo: "/logos/aws.png" },
   { id: "azure", name: "Azure", logo: "/placeholder.svg?height=24&width=24" },
 ]
 
@@ -263,7 +263,7 @@ export default function SchemaPage() {
                   onClick={() => setActiveProvider(provider.id)}
                 >
                   <Image
-                    src={provider.logo || "/placeholder.svg"}
+                    src={provider.logo}
                     alt={provider.name}
                     width={16}
                     height={16}

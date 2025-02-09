@@ -45,6 +45,35 @@ export async function updateProjectAction(
   data: UpdateProjectData
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // First check if the project exists
+    const existingProject = await prisma.project.findUnique({
+      where: { id: data.projectId },
+    });
+
+    if (!existingProject) {
+      return { 
+        success: false, 
+        error: `Project with ID ${data.projectId} not found` 
+      };
+    }
+
+    // Also check if the user has access to this project
+    const user = await getUser();
+    if (!user) {
+      return { 
+        success: false, 
+        error: "User not authenticated" 
+      };
+    }
+
+    if (existingProject.userId !== user.id) {
+      return { 
+        success: false, 
+        error: "User does not have permission to update this project" 
+      };
+    }
+
+    // If all checks pass, update the project
     await prisma.project.update({
       where: { id: data.projectId },
       data: {
@@ -55,9 +84,14 @@ export async function updateProjectAction(
         supabaseAnonKey: data.supabaseAnonKey,
       },
     });
+
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    console.error("Error updating project:", error);
+    return { 
+      success: false, 
+      error: error.message || "Failed to update project" 
+    };
   }
 }
 

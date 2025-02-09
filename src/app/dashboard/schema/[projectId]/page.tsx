@@ -1,7 +1,7 @@
 // src/pages/SchemaPage.tsx
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { debounce } from "lodash"
@@ -12,17 +12,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Info, ChevronDown, ChevronUp, Play, Loader2 } from "lucide-react";
+import { Info, ChevronDown, ChevronUp, Play, Loader2, FileText } from "lucide-react";
 import ReactFlow, { Controls, Background, useNodesState, useEdgesState } from "reactflow";
 import "reactflow/dist/style.css";
 import { useDispatch, useSelector } from "react-redux";
 import { setSupabaseConfig } from "@/lib/schemaSlice";
-import { setSchema, setRLSPolicies, setAdditionalContext } from "@/lib/projectSlice";
+import { setSchema, setRLSPolicies, setAdditionalContext, setSupabaseUrl, setSupabaseAnonKey } from "@/lib/projectSlice";
 import { setTestCategories, updateTestCaseResult } from "@/lib/testsSlice";
 import type { RootState } from "@/lib/store";
 import Image from "next/image";
 import RoleSelector from "@/components/role-selector";
 import { updateProjectAction } from "@/lib/actions/project";
+import { useRouter } from "next/navigation";
+import { loadTestResults, saveTestResults } from "@/lib/actions/tests";
 
 interface ExpectedOutcome {
   data?: any;
@@ -61,21 +63,15 @@ const databaseProviders: DatabaseProvider[] = [
 
 export default function SchemaPage() {
   const dispatch = useDispatch()
+  const testCategories = useSelector((state: RootState) => state.tests.categories);
   const selectedProject = useSelector((state: RootState) => state.project.selectedProject);
-  const { schema, rlsPolicies, additionalContext, supabaseConfig } = useSelector((state: RootState) => state.schema)
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [expandedTests, setExpandedTests] = useState<string[]>([])
-  const [testCategories, setTestCategories] = useState<TestCategory[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [activeProvider, setActiveProvider] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState("anon")
-  const [providerConfigs, setProviderConfigs] = useState<Record<string, { url: string; key: string }>>({
-    supabase: { url: supabaseConfig.url, key: supabaseConfig.anonKey },
-    firebase: { url: "", key: "" },
-    aws: { url: "", key: "" },
-    azure: { url: "", key: "" },
-  })
+  const router = useRouter()
 
   const debouncedUpdate = useCallback(
     debounce(async (projectId: string, dbSchema: string, rlsSchema: string, additionalContext: string) => {
@@ -86,7 +82,7 @@ export default function SchemaPage() {
           rlsSchema,
           additionalContext
         });
-        
+
         if (!result.success) {
           console.error("Failed to update project:", result.error);
         }
@@ -97,9 +93,31 @@ export default function SchemaPage() {
     []
   );
 
+  const debouncedUpdateConfig = useCallback(
+    debounce(async (projectId: string, supabaseUrl: string | undefined, supabaseAnonKey: string | undefined) => {
+      try {
+        const result = await updateProjectAction({
+          projectId,
+          dbSchema: selectedProject?.dbSchema || '',
+          rlsSchema: selectedProject?.rlsSchema || '',
+          additionalContext: selectedProject?.additionalContext || '',
+          supabaseUrl,
+          supabaseAnonKey,
+        });
+
+        if (!result.success) {
+          console.error("Failed to update project:", result.error);
+        }
+      } catch (error) {
+        console.error("Error updating project:", error);
+      }
+    }, 1000),
+    [selectedProject]
+  );
+
   const handleSchemaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (!selectedProject?.id) return;
-    
+
     const value = e.target.value;
     // Update Redux
     dispatch(setSchema({ projectId: selectedProject.id, value }));
@@ -114,7 +132,7 @@ export default function SchemaPage() {
 
   const handleRLSChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (!selectedProject?.id) return;
-    
+
     const value = e.target.value;
     dispatch(setRLSPolicies({ projectId: selectedProject.id, value }));
     debouncedUpdate(
@@ -127,7 +145,7 @@ export default function SchemaPage() {
 
   const handleContextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (!selectedProject?.id) return;
-    
+
     const value = e.target.value;
     dispatch(setAdditionalContext({ projectId: selectedProject.id, value }));
     debouncedUpdate(
@@ -137,14 +155,14 @@ export default function SchemaPage() {
       value
     );
   };
-  
+
   const toggleTest = (testId: string) => {
     setExpandedTests((prev) => (prev.includes(testId) ? prev.filter((id) => id !== testId) : [...prev, testId]))
   }
 
   const generateTests = async () => {
     if (!selectedProject) return;
-    
+
     setIsGenerating(true);
     try {
       const response = await fetch("/api/test-runner", {
@@ -158,14 +176,19 @@ export default function SchemaPage() {
           additionalContext: selectedProject.additionalContext
         }),
       });
-  
+
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
       }
-  
+
       const data = await response.json();
       if (data.result && data.result.test_categories) {
-        setTestCategories(data.result.test_categories);
+        dispatch(setTestCategories(data.result.test_categories));
+        // Save the generated tests
+        await saveTestResults({
+          projectId: selectedProject.id,
+          categories: data.result.test_categories
+        });
       }
     } catch (error) {
       console.error("Error calling /api/test-runner:", error);
@@ -187,66 +210,77 @@ export default function SchemaPage() {
   //   }
   // }
 
-  const runTest = async (testId: string) => {
-    // Simulate running a single test
-    setTestCategories((prev) =>
-      prev.map((category) => ({
-        ...category,
-        tests: category.tests.map((test) =>
-          test.id === testId ? { ...test, status: Math.random() > 0.5 ? "passed" : "failed" } : test,
-        ),
-      })),
-    )
-  }
+  // const runTest = async (testId: string) => {
+  //   // Simulate running a single test
+  //   setTestCategories((prev) =>
+  //     prev.map((category) => ({
+  //       ...category,
+  //       tests: category.tests.map((test) =>
+  //         test.id === testId ? { ...test, status: Math.random() > 0.5 ? "passed" : "failed" } : test,
+  //       ),
+  //     })),
+  //   )
+  // }
+  const runTest = async (testId: string, query: string) => {
+    if (!selectedProject?.id || !query) return;
+
+    try {
+      const response = await fetch("/api/run-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `const { data, error } = await supabase${query}; return { data, error };`,
+          url: selectedProject.supabaseUrl,
+          anonKey: selectedProject.supabaseAnonKey,
+        }),
+      });
+
+      const data = await response.json();
+      
+      const categoryId = testCategories.find((category) =>
+        category.tests.some((test) => test.id === testId)
+      )?.id;
+
+      if (categoryId) {
+        dispatch(updateTestCaseResult({
+          categoryId,
+          testCaseId: testId,
+          result: {
+            status: data.error ? "failed" : "passed",
+            data: data.data,
+            error: data.error,
+            statusText: response.statusText
+          },
+        }));
+      }
+    } catch (error) {
+      console.error("Error running test:", error);
+    }
+  };
 
   const runTestSuite = async (categoryId: string) => {
-    // Simulate running all tests in a category
-    setTestCategories((prev) =>
-      prev.map((category) =>
-        category.id === categoryId
-          ? {
-            ...category,
-            tests: category.tests.map((test) => ({
-              ...test,
-              status: Math.random() > 0.5 ? "passed" : "failed",
-            })),
-          }
-          : category,
-      ),
-    )
-  }
+    const category = testCategories.find(cat => cat.id === categoryId);
+    if (!category) return;
 
-  const handleProviderChange = (providerId: string) => {
-    setActiveProvider(providerId)
-  }
-
-  const handleConfigChange = (providerId: string, field: "url" | "key", value: string) => {
-    setProviderConfigs((prev) => ({
-      ...prev,
-      [providerId]: {
-        ...prev[providerId],
-        [field]: value,
-      },
-    }))
-  }
-
-  const fetchProviderSchema = (providerId: string) => {
-    const config = providerConfigs[providerId]
-    console.log(`Fetching schema for ${providerId} with config:`, config)
-    // Here you would typically fetch the schema and RLS policies from the selected provider
-  }
-
-  const handleConfigSave = (providerId: string) => {
-    if (providerId === "supabase") {
-      dispatch(
-        setSupabaseConfig({
-          url: providerConfigs.supabase.url,
-          anonKey: providerConfigs.supabase.key,
-        }),
-      )
+    for (const test of category.tests) {
+      if (test.query) {
+        await runTest(test.id, test.query);
+      }
     }
-    console.log(`Saving config for ${providerId}:`, providerConfigs[providerId])
-  }
+  };
+
+  useEffect(() => {
+    async function loadSavedTests() {
+      if (!selectedProject?.id) return;
+      
+      const result = await loadTestResults(selectedProject.id);
+      if (result.success && result.categories) {
+        dispatch(setTestCategories(result.categories));
+      }
+    }
+    
+    loadSavedTests();
+  }, [selectedProject?.id, dispatch]);
 
   return (
     <div className="h-screen flex">
@@ -279,39 +313,52 @@ export default function SchemaPage() {
                     <p className="text-sm text-muted-foreground">Enter your credentials to connect</p>
                   </div>
                   <div className="grid gap-2">
-                    <div className="grid gap-1">
-                      <Label htmlFor={`${provider.id}-url`}>Project URL</Label>
-                      <Input
-                        id={`${provider.id}-url`}
-                        placeholder={`${provider.name} project URL`}
-                        value={providerConfigs[provider.id]?.url || ""}
-                        onChange={(e) =>
-                          setProviderConfigs((prev) => ({
-                            ...prev,
-                            [provider.id]: { ...prev[provider.id], url: e.target.value },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="grid gap-1">
-                      <Label htmlFor={`${provider.id}-key`}>Anon Key</Label>
-                      <Input
-                        id={`${provider.id}-key`}
-                        type="password"
-                        placeholder={`${provider.name} anon key`}
-                        value={providerConfigs[provider.id]?.key || ""}
-                        onChange={(e) =>
-                          setProviderConfigs((prev) => ({
-                            ...prev,
-                            [provider.id]: { ...prev[provider.id], key: e.target.value },
-                          }))
-                        }
-                      />
-                    </div>
+                    {provider.id === 'supabase' && (
+                      <div className="grid gap-1">
+                        <Label htmlFor="supabase-url">Project URL</Label>
+                        <Input
+                          id="supabase-url"
+                          placeholder="Supabase project URL"
+                          value={selectedProject?.supabaseUrl || ""}
+                          onChange={(e) => {
+                            if (!selectedProject?.id) return;
+                            dispatch(setSupabaseUrl({
+                              projectId: selectedProject.id,
+                              value: e.target.value
+                            }));
+                            debouncedUpdateConfig(
+                              selectedProject.id,
+                              e.target.value,
+                              selectedProject.supabaseAnonKey
+                            );
+                          }}
+                        />
+                      </div>
+                    )}
+                    {provider.id === 'supabase' && (
+                      <div className="grid gap-1">
+                        <Label htmlFor="supabase-key">Anon Key</Label>
+                        <Input
+                          id="supabase-key"
+                          type="password"
+                          placeholder="Supabase anon key"
+                          value={selectedProject?.supabaseAnonKey || ""}
+                          onChange={(e) => {
+                            if (!selectedProject?.id) return;
+                            dispatch(setSupabaseAnonKey({
+                              projectId: selectedProject.id,
+                              value: e.target.value
+                            }));
+                            debouncedUpdateConfig(
+                              selectedProject.id,
+                              selectedProject.supabaseUrl,
+                              e.target.value
+                            );
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
-                  <Button onClick={() => handleConfigSave(provider.id)} className="w-full">
-                    Save
-                  </Button>
                 </div>
               </PopoverContent>
             </Popover>
@@ -362,44 +409,36 @@ export default function SchemaPage() {
 
           <TabsContent value="tests" className="flex-1">
             <div className="space-y-4">
-              {/* <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold">Security Tests</h2>
-                <RoleSelector role={selectedRole} setRole={setSelectedRole} />
-                <Button onClick={generateTests} disabled={isGenerating}>
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    "Generate Tests"
-                  )}
-                </Button>
-              </div> */}
               <div className="flex justify-between items-center">
-    <div className="flex items-center space-x-4">
-      <h2 className="text-lg font-semibold">Security Tests</h2>
-      <RoleSelector role={selectedRole} setRole={setSelectedRole} />
-    </div>
-    <Button
-      onClick={generateTests}
-      disabled={isGenerating}
-      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md"
-    >
-      {isGenerating ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Generating...
-        </>
-      ) : (
-        <>
-          Generate Tests 
-        </>
-      )}
-    </Button>
-  </div>
-              
-              
+                <div className="flex items-center space-x-4">
+                  <h2 className="text-lg font-semibold">Security Tests</h2>
+                  <RoleSelector role={selectedRole} setRole={setSelectedRole} />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={generateTests}
+                    disabled={isGenerating}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      "Generate Tests"
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => router.push(`/dashboard/results/${selectedProject?.id}`)}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <FileText className="h-4 w-4" />
+                    View Report
+                  </Button>
+                </div>
+              </div>
 
               <ScrollArea className="h-[calc(100vh-200px)]">
                 <div className="space-y-4 pr-4">
@@ -426,7 +465,6 @@ export default function SchemaPage() {
                             >
                               <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-muted rounded-md">
                                 <div className="flex items-center gap-2">
-                                  {/* {getStatusIcon(test.status)} */}
                                   <span>{test.name}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -447,10 +485,31 @@ export default function SchemaPage() {
                                 )}
                                 {test.expected && (
                                   <div className="text-xs text-muted-foreground mt-2">
-                                    {/* <span className="font-medium">Expected Result:</span> {test.expected} */}
                                   </div>
                                 )}
-                                <Button size="sm" onClick={() => runTest(test.id)}>
+                                {test.result && (
+                                  <div className="mt-2 space-y-2">
+                                    <div className={`text-sm font-medium ${test.result.status === 'passed' ? 'text-green-600' : 'text-red-600'
+                                      }`}>
+                                      Status: {test.result.status}
+                                    </div>
+                                    {test.result.data && (
+                                      <div className="bg-muted p-2 rounded-md">
+                                        <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                                          {JSON.stringify(test.result.data, null, 2)}
+                                        </pre>
+                                      </div>
+                                    )}
+                                    {test.result.error && (
+                                      <div className="bg-red-50 p-2 rounded-md">
+                                        <pre className="text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">
+                                          {JSON.stringify(test.result.error, null, 2)}
+                                        </pre>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                <Button size="sm" onClick={() => runTest(test.id, test.query)}>
                                   <Play className="h-3 w-3 mr-2" />
                                   Run Test
                                 </Button>

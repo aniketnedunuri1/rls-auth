@@ -1,9 +1,10 @@
 // src/lib/testsSlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { saveTestResults, loadTestResults } from '@/lib/actions/tests';
 
 export interface ExpectedOutcome {
   data?: any;
-  status?: number;
+  status?: "pending" | "passed" | "failed" | "error";
   statusText?: string;
   error?: any;
 }
@@ -14,7 +15,7 @@ export interface TestCase {
   description: string;
   query: string;
   expected: ExpectedOutcome;
-  result?: ExpectedOutcome & { status: "pending" | "passed" | "failed" | "error" };
+  result?: ExpectedOutcome;
 }
 
 export interface TestCategory {
@@ -28,36 +29,48 @@ interface TestsState {
   categories: TestCategory[];
 }
 
+interface TestResult {
+  status: 'passed' | 'failed';
+  error?: any;
+  data?: any;
+  statusText?: string;
+}
+
+interface UpdateTestCaseResultPayload {
+  categoryId: string;
+  testCaseId: string;
+  result: TestResult;
+}
+
 const initialState: TestsState = {
   categories: [],
 };
 
-const testsSlice = createSlice({
+export const testsSlice = createSlice({
   name: "tests",
   initialState,
   reducers: {
-    setTestCategories(state, action: PayloadAction<TestCategory[]>) {
+    setTestCategories: (state, action: PayloadAction<TestCategory[]>) => {
       state.categories = action.payload;
     },
-    updateTestCaseResult(
-      state,
-      action: PayloadAction<{
-        categoryId: string;
-        testCaseId: string;
-        result: ExpectedOutcome & { status: "passed" | "failed" | "error" };
-      }>
-    ) {
+    updateTestCaseResult: (state, action: PayloadAction<UpdateTestCaseResultPayload>) => {
       const { categoryId, testCaseId, result } = action.payload;
       const category = state.categories.find((cat) => cat.id === categoryId);
       if (category) {
         const testCase = category.tests.find((test) => test.id === testCaseId);
         if (testCase) {
-          testCase.result = result;
+          testCase.result = {
+            ...result,
+            status: result.status === 'passed' ? 'passed' : 'failed'
+          } as ExpectedOutcome & { status: "pending" | "passed" | "failed" | "error" };
         }
       }
+    },
+    clearTestResults: (state) => {
+      state.categories = [];
     },
   },
 });
 
-export const { setTestCategories, updateTestCaseResult } = testsSlice.actions;
+export const { setTestCategories, updateTestCaseResult, clearTestResults } = testsSlice.actions;
 export default testsSlice.reducer;

@@ -3,17 +3,32 @@
 
 import { createServerSupabaseClient } from "../supabase-server-client";
 import { redirect } from "next/navigation";
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
 
 export async function getUser() {
     const supabase = await createServerSupabaseClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    
+    if (user) {
+      // Ensure user exists in Prisma database
+      try {
+        const existingUser = await prisma.user.upsert({
+          where: { id: user.id },
+          update: {}, // no updates needed
+          create: {
+            id: user.id,
+            email: user.email || '',
+          },
+        });
+      } catch (error) {
+        console.error("Error syncing user to database:", error);
+      }
+    }
+    
     return user;
-  }
+}
 
 /**
  * Server Action to log a user in.
@@ -30,6 +45,21 @@ export async function loginAction(formData: FormData) {
   if (error || !data.user) {
     // Optionally handle errors (e.g., show a message, log it, etc.)
     return { error: "Username or password incorrect" };
+  }
+
+  // Use upsert instead of create to handle race conditions
+  try {
+    await prisma.user.upsert({
+      where: { id: data.user.id },
+      update: {}, // no updates needed
+      create: {
+        id: data.user.id,
+        email: data.user.email || email,
+      },
+    });
+  } catch (error) {
+    console.error("Error syncing user to database:", error);
+    // You might want to handle this error differently
   }
 
   // On success, redirect the user.
@@ -51,21 +81,20 @@ export async function registerAction(formData: FormData) {
     throw new Error(error.message);
   }
 
-  // You could sync with your database or send a confirmation email here.
   const user = data.user;
   if (user) {
-    // Check if the user already exists in your users table
-    const existingUser = await prisma.user.findUnique({
-      where: { id: user.id },
-    });
-    if (!existingUser) {
-      await prisma.user.create({
-        data: {
-          id: user.id,         // use the same ID as in Supabase auth
+    try {
+      await prisma.user.upsert({
+        where: { id: user.id },
+        update: {}, // no updates needed
+        create: {
+          id: user.id,
           email: user.email || email,
-          // add other default fields if necessary
         },
       });
+    } catch (error) {
+      console.error("Error creating user in database:", error);
+      throw new Error("Failed to create user record");
     }
   }
 

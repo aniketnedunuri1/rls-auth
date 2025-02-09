@@ -1,13 +1,10 @@
 // /lib/actions/project.ts
 "use server";
 
-import { PrismaClient } from '@prisma/client';
 import { getUser } from './auth';
 import { redirect } from 'next/navigation';
+import { prisma } from '../prisma';  // Import the singleton instance
 
-const prisma = new PrismaClient();
-
-  
 export async function createProjectAction(formData: FormData): Promise<{ id: string; name: string } | null> {
     const projectName = formData.get("projectName") as string;
     if (!projectName || !projectName.trim()) {
@@ -26,6 +23,8 @@ export async function createProjectAction(formData: FormData): Promise<{ id: str
             dbSchema: "",
             rlsSchema: "",
             additionalContext: "",
+            supabaseUrl: "",
+            supabaseAnonKey: "",
         },
     });
 
@@ -38,6 +37,8 @@ interface UpdateProjectData {
   dbSchema: string;
   rlsSchema: string;
   additionalContext: string;
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
 }
 
 export async function updateProjectAction(
@@ -50,6 +51,8 @@ export async function updateProjectAction(
         dbSchema: data.dbSchema,
         rlsSchema: data.rlsSchema,
         additionalContext: data.additionalContext,
+        supabaseUrl: data.supabaseUrl,
+        supabaseAnonKey: data.supabaseAnonKey,
       },
     });
     return { success: true };
@@ -76,7 +79,7 @@ export async function updateProjectAction(
   
 // }
 export async function fetchProjects(): Promise<{
-  projects: { id: string; name: string; dbSchema: string; rlsSchema: string; additionalContext?: string }[];
+  projects: { id: string; name: string; dbSchema: string; rlsSchema: string; additionalContext?: string | null, supabaseUrl?: string | null, supabaseAnonKey?: string | null }[];
   selectedProjectId: string | null;
 }> {
   const user = await getUser();
@@ -90,14 +93,10 @@ export async function fetchProjects(): Promise<{
       dbSchema: true,
       rlsSchema: true,
       additionalContext: true, // Prisma returns `string | null`
+      supabaseUrl: true,
+      supabaseAnonKey: true,
     },
   });
-
-  // ✅ Convert `null` to `undefined`
-  const formattedProjects = projects.map((project) => ({
-    ...project,
-    additionalContext: project.additionalContext ?? undefined, // Convert null -> undefined
-  }));
 
   // Fetch the selected project ID from the database
   const userData = await prisma.user.findUnique({
@@ -106,8 +105,8 @@ export async function fetchProjects(): Promise<{
   });
 
   return { 
-    projects: formattedProjects, 
-    selectedProjectId: userData?.selectedProjectId ?? null // ✅ Ensure selectedProjectId is defined
+    projects: projects, 
+    selectedProjectId: userData?.selectedProjectId ?? null
   };
 }
 

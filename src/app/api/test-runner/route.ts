@@ -42,112 +42,155 @@ Test Suite:
 ${suiteList}
 
 Task:
-Using the provided information, generate a JSON object that defines a comprehensive suite of tests for the user's database. 
+Using the provided information, generate a JSON object that defines a comprehensive suite of tests for the user's database from an anonymous user's perspective.
 
 IMPORTANT ROLE AND ACCESS RULES:
 - You are STRICTLY an anonymous authenticated user (via signInAnonymously)
-- You have NO access to any UUIDs or existing records. No queries should reference UUIDs or existing records. All queries must be strictly acting as an anonymous user.
-- NEVER use placeholder UUIDs or IDs like 'non_existing_id' or 'some-uuid' or 'fake-uuid' or 'placeholder-uuid'. If a query requires a UUID, you must regenerate the query without it, or you must generate a new query that does not have a UUID.
-- Only attempt operations that a real anonymous user could perform, with no access to any UUIDs or existing records.
-- Do not assume you can reference specific records or users
-- All queries must work without modification or placeholder values
-- Focus on testing RLS policies and access restrictions from an anonymous context
-- For insert/update operations, use actual values that don't require existing records
-- For select operations, use filtering based on public fields only
+- You have NO access to any existing records
+- All queries must be strictly acting as an anonymous user
+- Only attempt operations that a real anonymous user could perform
+- Focus on testing RLS policies and access restrictions
+- For insert operations, use only required fields with actual values
+- For select operations, use only public field filtering
+- Never use or reference UUIDs or specific record IDs
 
-Examples of CORRECT queries:
-1. Select all public records:
-   const { data, error } = await supabase.from("posts").select("*").eq("is_public", true);
+CORRECT TEST PATTERNS:
+1. Select Queries:
+   ✓ const { data, error } = await supabase.from("table").select("*");
+   ✓ const { data, error } = await supabase.from("table").select("message");
+   ❌ NO .eq() filters that reference IDs or non-existent columns
 
-2. Insert with generated values:
-   const { data, error } = await supabase.from("messages").insert({ content: "Test message" });
+2. Insert Queries:
+   ✓ const { data, error } = await supabase.from("table").insert({ message: "Test message" });
+   ✓ const { data, error } = await supabase.from("table").insert({ message: "Anonymous message" });
 
-3. Update based on public fields:
-   const { data, error } = await supabase.from("comments").update({ status: "edited" }).eq("is_public", true);
+3. Update/Delete Queries:
+   ✓ const { data, error } = await supabase.from("table").update({ field: "value" }).eq("public_field", true);
+   ✓ const { data, error } = await supabase.from("table").delete().eq("public_field", true);
+   // Must include WHERE clause
 
-Examples of INCORRECT queries (DO NOT USE):
-❌ .eq('user_id', 'some-uuid')
-❌ .match({ id: "non_existing_id" })
-❌ .eq('creator_id', 'placeholder-uuid')
+SCHEMA-SPECIFIC RULES:
+- Only use columns that exist in the provided schema
+- Do not assume existence of columns like 'is_public'
+- Focus on basic CRUD operations without filters
+- For chat_messages table, only use the 'message' column in tests
 
-The JSON object you generate must have a property "test_categories" (an array). Each test category must include:
-  - "id": A unique identifier string for the test category.
-  - "name": The name of the test category.
-  - "description": A brief description of what this category tests.
-  - "tests": An array of test case objects.
+INCORRECT PATTERNS (NEVER USE):
+❌ Any UUID references
+❌ Specific record IDs
+❌ SQL injection attempts
+❌ References to existing records
 
-Each test case object must have these properties:
-  - "id": A unique identifier string for the test case.
-  - "name": The name of the test.
-  - "description": A detailed explanation of what the test verifies.
-  - "query": A Supabase TypeScript code snippet that executes a malicious or unauthorized attempt from your single user context. Include:
-       return { data, error };
-    at the end to return a JSON result.
-  - "expected": A JSON object representing the anticipated response from Supabase (select, insert, update, error, etc.) 
-    following the formats:
-For expected responses, use EXACTLY these formats:
+EXPECTED RESPONSE FORMATS:
 
-For a successful SELECT query:
+1. For SELECT operations:
+   When access is blocked or no data available:
+   {
+     "data": [],
+     "error": null
+   }
+   OR
+   {
+     "data": null,
+     "error": null
+   }
+   (Both responses are equivalent for empty/blocked results)
+
+2. For INSERT operations:
+   When allowed:
+   {
+     "data": null,
+     "error": null
+   }
+   
+   When blocked by RLS:
+   {
+     "data": null,
+     "error": {
+       "code": "42501",
+       "message": "new row violates row-level security policy",
+       "details": null,
+       "hint": null
+     }
+   }
+
+3. For UPDATE/DELETE operations without WHERE clause:
+   {
+     "data": null,
+     "error": {
+       "code": "21000",
+       "message": "UPDATE/DELETE requires a WHERE clause",
+       "details": null,
+       "hint": null
+     }
+   }
+
+4. For UPDATE/DELETE operations with WHERE clause:
+   When blocked by RLS:
+   {
+     "data": null,
+     "error": {
+       "code": "42501",
+       "message": "new row violates row-level security policy",
+       "details": null,
+       "hint": null
+     }
+   }
+   
+   When no rows affected:
+   {
+     "data": null,
+     "error": null
+   }
+
+TEST CATEGORIES TO GENERATE:
+1. Anonymous Read Access
+   - Testing public data visibility
+   - Testing restricted data access
+   - Testing column-level restrictions
+
+2. Anonymous Write Access
+   - Testing insert permissions
+   - Testing update restrictions
+   - Testing delete restrictions
+
+3. RLS Policy Enforcement
+   - Testing explicit deny rules
+   - Testing explicit allow rules
+   - Testing default deny behavior
+
+REQUIREMENTS:
+1. Each test category must include at least 5 unique test cases
+2. All queries must be executable with only anon key
+3. No placeholder values or UUIDs
+4. All tests must be from anonymous user perspective
+5. Focus on RLS policy enforcement
+6. Output must be valid JSON
+7. Include complete test cases
+8. Test names should clearly describe the security aspect being tested
+
+The JSON output must follow this structure:
 {
-  "data": [],
-  "error": null
-}
-
-For an empty SELECT query:
-{
-  "data": null,
-  "error": null
-}
-
-For a successful INSERT/UPDATE:
-{
-  "data": [],
-  "error": null
-}
-
-For an RLS policy violation:
-{
-  "data": null,
-  "error": {
-    "code": "42501",
-    "message": "new row violates row-level security policy",
-    "details": null,
-    "hint": null
-  }
-}
-
-For a SQL injection attempt:
-{
-  "data": null,
-  "error": null
-}
-
-For a constraint violation:
-{
-  "data": null,
-  "error": {
-    "code": "23502",
-    "message": "null value in column violates not-null constraint",
-    "details": null,
-    "hint": null
-  }
-}
-
-
-Requirements:
-1. Generate at least three test categories (for example, "RLS Testing", "SQL Injection Testing", and "Privileges Testing") and anyother categories you see fit after analyzing the schema and RLS policies.
-2. Each test category must include at least 5 unique test cases.
-3. All queries must be executable with only the public URL and anon key, as this single anonymous user.
-4. The "query" property in each test must be in valid Supabase TypeScript format, including the return statement.
-5. The "expected" property must exactly match one of the response JSON examples. 
-6. Output MUST be strictly valid JSON. No extra keys, commentary, or markdown.
-7. Do not truncate the output; produce all test cases.
-8. You are acting as a single anonymous user. Do not simulate multiple distinct users or roles.
-9. Do not write any queries that have placeholder values. All queries must be ready to run with 0 input or changes required.
-10. Never output arrays as [...]. Use [] if the array should have data, and use null if there should not be data,
-11. Do not use placeholder UUIDs or IDs like 'non_existing_id' or 'some-uuid' or 'fake-uuid' or 'placeholder-uuid'. If you do, you must regenerate the query.
-
-Generate the JSON output strictly following these instructions.`;
+  "test_categories": [
+    {
+      "id": "unique-string",
+      "name": "Category Name",
+      "description": "Category description",
+      "tests": [
+        {
+          "id": "unique-string",
+          "name": "Test name",
+          "description": "Test description",
+          "query": "const { data, error } = await supabase...",
+          "expected": {
+            "data": null,
+            "error": null
+          }
+        }
+      ]
+    }
+  ]
+}`;
 }
 
 export async function POST(req: Request): Promise<Response> {

@@ -16,10 +16,10 @@ export async function POST(req: Request): Promise<Response> {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    // 1. Create an "anon" client
+    // Create an "anon" client
     const supabaseAnon = createClient(url, anonKey);
 
-    // 2. Sign in anonymously (Supabase 2.0 supports this out of the box)
+    // Sign in anonymously
     const { data: anonSignInData, error: anonSignInError } = await supabaseAnon.auth.signInAnonymously();
     if (anonSignInError || !anonSignInData?.session?.access_token) {
       console.error("Anonymous sign in failed:", anonSignInError);
@@ -31,7 +31,7 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    // 3. Use the returned Access Token to create an AUTH'd client
+    // Use the returned Access Token to create an AUTH'd client
     const supabaseAuth = createClient(url, anonKey, {
       global: {
         headers: {
@@ -42,29 +42,40 @@ export async function POST(req: Request): Promise<Response> {
 
     console.log("Executing user snippet:", query);
 
-    // 4. Build a dynamic function from the user-supplied snippet.
-    //    We assume `query` is a valid snippet that includes its own:
-    //      const { data, error } = await supabase.from('...')...
-    //      return { data, error };
+    // Build and execute the dynamic function
     const func = new Function(
       "supabase",
       `
-        return (async () => {
+      return (async () => {
+        try {
           ${query}
-        })();
+        } catch (error) {
+          return { 
+            data: null, 
+            error: error.message || "Execution error" 
+          };
+        }
+      })();
       `
     );
 
-    // 5. Run the snippet
+    // Execute the function and handle the result
     const result = await func(supabaseAuth);
+    
+    // Ensure we have a valid result object
+    const safeResult = {
+      data: result?.data ?? null,
+      error: result?.error ?? null
+    };
 
-    // 6. Return the result
-    const safeResult = JSON.parse(JSON.stringify(result));
     return NextResponse.json(safeResult, { status: 200 });
   } catch (error) {
     console.error("API route error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
+      {
+        error: error instanceof Error ? error.message : "Unknown error",
+        data: null
+      },
       { status: 500 }
     );
   }

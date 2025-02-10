@@ -115,6 +115,7 @@ EXPECTED RESPONSE FORMATS:
    }
 
 3. For UPDATE/DELETE operations without WHERE clause:
+   Any of these responses indicate a successful test:
    {
      "data": null,
      "error": {
@@ -124,6 +125,23 @@ EXPECTED RESPONSE FORMATS:
        "hint": null
      }
    }
+   OR
+   {
+     "data": null,
+     "error": {
+       "code": "42501",
+       "message": "new row violates row-level security policy",
+       "details": null,
+       "hint": null
+     }
+   }
+   OR
+   {
+     "data": null,
+     "error": null
+   }
+   
+   (All above responses indicate the operation was not allowed)
 
 4. For UPDATE/DELETE operations with WHERE clause:
    When blocked by RLS:

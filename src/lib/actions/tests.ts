@@ -10,6 +10,10 @@ interface SaveTestResultsParams {
   categories: TestCategory[];
 }
 
+interface TestWithSolution extends TestCase {
+  solution?: string;
+}
+
 export async function saveTestResults({ projectId, categories }: SaveTestResultsParams) {
   try {
     const user = await getUser();
@@ -84,6 +88,7 @@ export async function loadTestResults(projectId: string) {
         category.tests.push({
           id: test.id,
           name: test.name,
+          categoryId: test.categoryId,
           description: test.description,
           query: test.query || '',
           expected: test.expected as ExpectedOutcome,
@@ -99,5 +104,87 @@ export async function loadTestResults(projectId: string) {
   } catch (error) {
     console.error('Error loading test results:', error);
     return { success: false, error: (error as Error).message };
+  }
+}
+
+export async function generateAndSaveSolution(test: TestCase, projectId: string) {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { dbSchema: true, rlsSchema: true }
+    });
+
+    if (!project) throw new Error("Project not found");
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/generate-solution`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        test,
+        dbSchema: project.dbSchema,
+        currentRLS: project.rlsSchema
+      })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to generate solution');
+    }
+
+    // Save the solution to the database
+    await prisma.test.update({
+      where: { id: test.id },
+      data: { solution: data.solution }
+    });
+
+    return data.solution;
+  } catch (error) {
+    console.error('Error generating solution:', error);
+    return null;
+  }
+}
+
+export async function saveSolution(testId: string, solution: string) {
+  'use server';
+  
+  console.log('saveSolution called with testId:', testId);
+  try {
+    if (!testId || !solution) {
+      throw new Error('Missing required parameters');
+    }
+
+    // Log all tests in the database
+    const allTests = await prisma.test.findMany({
+      select: { id: true, name: true }
+    });
+    console.log('All tests in database:', allTests);
+
+    // Check if the test exists
+    const existingTest = await prisma.test.findUnique({
+      where: { id: testId }
+    });
+    
+    console.log('Found test?', existingTest ? 'Yes' : 'No');
+    if (existingTest) {
+      console.log('Existing test details:', existingTest);
+    }
+
+    if (!existingTest) {
+      throw new Error(`Test with ID ${testId} not found in database`);
+    }
+
+    console.log('Attempting to update test:', testId);
+    const result = await prisma.test.update({
+      where: { id: testId },
+      data: { solution }
+    });
+
+    console.log('Successfully updated test:', result);
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('Error in saveSolution:', errorMessage);
+    return { success: false, error: errorMessage };
   }
 } 

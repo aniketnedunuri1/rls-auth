@@ -52,6 +52,7 @@ model Test {
   query       String?   
   expected    Json?     
   result      Json?     
+  solution    String?    // Add this field to store recommended fixes
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }

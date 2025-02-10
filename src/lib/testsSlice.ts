@@ -12,10 +12,12 @@ export interface ExpectedOutcome {
 export interface TestCase {
   id: string;
   name: string;
+  categoryId: string;
   description: string;
   query: string;
   expected: ExpectedOutcome;
   result?: ExpectedOutcome;
+  solution?: string;
 }
 
 export interface TestCategory {
@@ -40,6 +42,12 @@ interface UpdateTestCaseResultPayload {
   categoryId: string;
   testCaseId: string;
   result: TestResult;
+}
+
+interface UpdateTestSolutionPayload {
+  categoryId: string;
+  testId: string;
+  solution: string;
 }
 
 const initialState: TestsState = {
@@ -69,8 +77,23 @@ export const testsSlice = createSlice({
     clearTestResults: (state) => {
       state.categories = [];
     },
+    updateTestSolution: (state, action: PayloadAction<UpdateTestSolutionPayload>) => {
+      const { categoryId, testId, solution } = action.payload;
+      const category = state.categories.find((cat) => cat.id === categoryId);
+      if (category) {
+        const test = category.tests.find((test) => test.id === testId);
+        if (test) {
+          test.solution = solution;
+        }
+      }
+    },
   },
 });
 
-export const { setTestCategories, updateTestCaseResult, clearTestResults } = testsSlice.actions;
+export const { 
+  setTestCategories, 
+  updateTestCaseResult, 
+  clearTestResults,
+  updateTestSolution
+} = testsSlice.actions;
 export default testsSlice.reducer;

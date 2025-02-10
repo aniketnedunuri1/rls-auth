@@ -54,6 +54,20 @@ interface DatabaseProvider {
   logo: string
 }
 
+interface TestResult {
+    status: 'passed' | 'failed';
+    data: any;
+    error: any;
+    response: any;
+}
+
+interface ExpectedResult {
+    data: any;
+    error: any;
+    status?: number;
+    statusText?: string;
+}
+
 const databaseProviders: DatabaseProvider[] = [
   { id: "supabase", name: "Supabase", logo: "/logos/supabase.svg" },
   { id: "firebase", name: "Firebase", logo: "/logos/firebase.svg" },
@@ -197,64 +211,142 @@ export default function SchemaPage() {
     }
   };
 
-  // const getStatusIcon = (status: TestCase["status"]) => {
-  //   switch (status) {
-  //     case "passed":
-  //       return <CheckCircle className="h-4 w-4 text-green-500" />
-  //     case "failed":
-  //       return <XCircle className="h-4 w-4 text-red-500" />
-  //     case "warning":
-  //       return <AlertTriangle className="h-4 w-4 text-yellow-500" />
-  //     default:
-  //       return null
-  //   }
-  // }
+  const compareResults = (expected: ExpectedResult, actual: any, query: string) => {
+    console.log('Comparing results:', { expected, actual, query });
 
-  // const runTest = async (testId: string) => {
-  //   // Simulate running a single test
-  //   setTestCategories((prev) =>
-  //     prev.map((category) => ({
-  //       ...category,
-  //       tests: category.tests.map((test) =>
-  //         test.id === testId ? { ...test, status: Math.random() > 0.5 ? "passed" : "failed" } : test,
-  //       ),
-  //     })),
-  //   )
-  // }
-  const runTest = async (testId: string, query: string) => {
-    if (!selectedProject?.id || !query) return;
+    // Reject invalid tests
+    if (
+        query.includes('uuid') || 
+        query.includes('some-') || 
+        query.includes('-id') ||
+        query.includes('non-matching') ||
+        query.includes('is_public')
+    ) {
+        console.log('Invalid test detected:', {
+            reason: 'Contains invalid references or non-existent columns',
+            query
+        });
+        return false;
+    }
 
+    const isSelectQuery = query.includes('.select(');
+    const isInsertQuery = query.includes('.insert(');
+    const isUpdateQuery = query.includes('.update(');
+    const isDeleteQuery = query.includes('.delete(');
+
+    // For SELECT queries
+    if (isSelectQuery) {
+        // When access is blocked or no data is available
+        if (Array.isArray(expected.data) && expected.data.length === 0) {
+            return (
+                // Accept both empty array and null for data
+                (actual.error === null && Array.isArray(actual.data) && actual.data.length === 0) ||
+                (actual.error === null && actual.data === null)
+            );
+        }
+    }
+
+    // For UPDATE/DELETE queries
+    if (isUpdateQuery || isDeleteQuery) {
+        // Check if the query has a WHERE clause
+        const hasWhereClause = query.includes('.eq(') || 
+                              query.includes('.match(') || 
+                              query.includes('.filter(') ||
+                              query.includes('.where(');
+        
+        if (!hasWhereClause) {
+            // Should expect a "missing WHERE clause" error
+            return actual.error?.code === "21000" ||  // Missing WHERE clause
+                   actual.error?.message?.includes("requires a WHERE clause");
+        }
+
+        // If we expect an RLS error
+        if (expected.error?.code === "42501") {
+            return (
+                actual.error?.code === "42501" || // RLS violation
+                actual.error?.code === "21000" || // Missing WHERE clause
+                (actual.error === null && actual.data === null) // No rows affected
+            );
+        }
+    }
+
+    // For INSERT queries
+    if (isInsertQuery) {
+        if (expected.error?.code === "42501") {
+            return (
+                actual.error?.code === "42501" || // Explicit RLS violation
+                (actual.error === null && actual.data === null) // Implicit denial
+            );
+        }
+    }
+
+    // Default comparison for other cases
+    if (expected.error) {
+        return actual.error?.code === expected.error?.code;
+    }
+
+    return !actual.error && 
+           (actual.data === null || 
+            (Array.isArray(actual.data) && actual.data.length === 0));
+  };
+
+  const runTest = async (testId: string, userQuery: string | undefined) => {
+    if (!selectedProject?.id || !userQuery) return;
+
+    if (!selectedProject.supabaseUrl || !selectedProject.supabaseAnonKey) {
+        console.error("Missing Supabase configuration");
+        return;
+    }
+  
     try {
-      const response = await fetch("/api/run-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: `const { data, error } = await supabase${query}; return { data, error };`,
-          url: selectedProject.supabaseUrl,
-          anonKey: selectedProject.supabaseAnonKey,
-        }),
-      });
+        const response = await fetch("/api/run-test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                query: userQuery,
+                url: selectedProject.supabaseUrl,
+                anonKey: selectedProject.supabaseAnonKey,
+                role: selectedRole
+            }),
+        });
+  
+        const result = await response.json();
+        console.log('Test result:', result);
 
-      const data = await response.json();
-      
-      const categoryId = testCategories.find((category) =>
-        category.tests.some((test) => test.id === testId)
-      )?.id;
+        const categoryId = testCategories.find((category) =>
+            category.tests.some((test) => test.id === testId)
+        )?.id;
 
-      if (categoryId) {
-        dispatch(updateTestCaseResult({
-          categoryId,
-          testCaseId: testId,
-          result: {
-            status: data.error ? "failed" : "passed",
-            data: data.data,
-            error: data.error,
-            statusText: response.statusText
-          },
-        }));
-      }
+        if (categoryId) {
+            const test = testCategories
+                .find(cat => cat.id === categoryId)
+                ?.tests.find(t => t.id === testId);
+
+            if (test) {
+                const passed = compareResults(test.expected, result, test.query);
+                console.log('Test comparison:', {
+                    expected: test.expected,
+                    actual: result,
+                    passed
+                });
+
+                const testResult = {
+                    status: passed ? "passed" : "failed",
+                    data: result.data,
+                    error: result.error,
+                    response: result
+                };
+
+                dispatch(updateTestCaseResult({
+                    categoryId,
+                    testCaseId: testId,
+                    result: testResult
+                }));
+            }
+        }
     } catch (error) {
-      console.error("Error running test:", error);
+        console.error("Error running test:", error);
+        // ... rest of error handling
     }
   };
 
@@ -462,6 +554,13 @@ export default function SchemaPage() {
                               key={test.id}
                               open={expandedTests.includes(test.id)}
                               onOpenChange={() => toggleTest(test.id)}
+                              className={`${
+                                  test.result 
+                                      ? test.result.status === 'passed'
+                                          ? 'border-2 border-green-500'
+                                          : 'border-2 border-red-500'
+                                      : 'border border-gray-200'
+                              } rounded-md mb-2`}
                             >
                               <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-muted rounded-md">
                                 <div className="flex items-center gap-2">
@@ -478,37 +577,46 @@ export default function SchemaPage() {
                               </CollapsibleTrigger>
                               <CollapsibleContent className="p-2 mt-2 space-y-2">
                                 <p className="text-sm text-muted-foreground">{test.description}</p>
+                                
                                 {test.query && (
                                   <div className="bg-muted p-2 rounded-md">
+                                    <Label className="text-xs font-semibold">Query</Label>
                                     <pre className="text-xs overflow-x-auto whitespace-pre-wrap">{test.query}</pre>
                                   </div>
                                 )}
+
                                 {test.expected && (
-                                  <div className="text-xs text-muted-foreground mt-2">
+                                  <div className="bg-muted p-2 rounded-md">
+                                    <Label className="text-xs font-semibold">Expected Result</Label>
+                                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                                      {JSON.stringify(test.expected, null, 2)}
+                                    </pre>
                                   </div>
                                 )}
+
                                 {test.result && (
                                   <div className="mt-2 space-y-2">
-                                    <div className={`text-sm font-medium ${test.result.status === 'passed' ? 'text-green-600' : 'text-red-600'
-                                      }`}>
+                                    <div className={`text-sm font-medium ${
+                                      test.result.status === 'passed' ? 'text-green-600' : 'text-red-600'
+                                    }`}>
                                       Status: {test.result.status}
                                     </div>
-                                    {test.result.data && (
-                                      <div className="bg-muted p-2 rounded-md">
+                                    <div className="bg-muted p-2 rounded-md">
+                                      <Label className="text-xs font-semibold">Actual Result</Label>
+                                      {test.result.response && (
                                         <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
-                                          {JSON.stringify(test.result.data, null, 2)}
+                                          {JSON.stringify(test.result.response, null, 2)}
                                         </pre>
-                                      </div>
-                                    )}
-                                    {test.result.error && (
-                                      <div className="bg-red-50 p-2 rounded-md">
+                                      )}
+                                      {test.result.error && (
                                         <pre className="text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">
                                           {JSON.stringify(test.result.error, null, 2)}
                                         </pre>
-                                      </div>
-                                    )}
+                                      )}
+                                    </div>
                                   </div>
                                 )}
+
                                 <Button size="sm" onClick={() => runTest(test.id, test.query)}>
                                   <Play className="h-3 w-3 mr-2" />
                                   Run Test

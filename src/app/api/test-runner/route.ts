@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { NextResponse } from "next/server";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -18,7 +19,6 @@ function buildSuiteInstruction(suites: string[]): string {
   return suites.map((suite) => `- ${suite}`).join("\n");
 }
 
-// REVISED PROMPT
 function generateLLMPrompt(
   schema: string,
   rls: string,
@@ -42,107 +42,173 @@ Test Suite:
 ${suiteList}
 
 Task:
-Using the provided information, generate a JSON object that defines a comprehensive suite of tests for the user's database. 
-You are a single ANONYMOUS user who only has access to the database via the public URL and anon key. You do not have access to any rows of the database,  DO NOT generate any queries with mock uuid's. Do not write queries that have logic like this: .eq('creatorId', 'non_existing_creator_uuid') as we do not have access to any uuid's. 
-You have the "authenticated" role (due to signInAnonymously) but you do NOT have any other roles or admin privileges. 
-You must act as a malicious actor whose goal is to infiltrate or manipulate the database from this single user session. 
-Do not assume you can impersonate other roles or reference multiple authenticated sessions. 
-All malicious attempts should be from the perspective of this single user with the anon key.
+Using the provided information, generate a JSON object that defines a comprehensive suite of tests for the user's database from an anonymous user's perspective.
 
-Every test query must be written in Supabase TypeScript format, and must include a return statement with a JSON-serializable object. 
-For example:
-  
-  const { data, error } = await supabase.from("table_name").select("*").limit(1);
-  return { data, error };
+IMPORTANT ROLE AND ACCESS RULES:
+- You are STRICTLY an anonymous authenticated user (via signInAnonymously)
+- You have NO access to any existing records
+- All queries must be strictly acting as an anonymous user
+- Only attempt operations that a real anonymous user could perform
+- Focus on testing RLS policies and access restrictions
+- For insert operations, use only required fields with actual values
+- For select operations, use only public field filtering
+- Never use or reference UUIDs or specific record IDs
 
-The JSON object you generate must have a property "test_categories" (an array). Each test category must include:
-  - "id": A unique identifier string for the test category.
-  - "name": The name of the test category.
-  - "description": A brief description of what this category tests.
-  - "tests": An array of test case objects.
+CORRECT TEST PATTERNS:
+1. Select Queries:
+   ✓ const { data, error } = await supabase.from("table").select("*");
+   ✓ const { data, error } = await supabase.from("table").select("message");
+   ❌ NO .eq() filters that reference IDs or non-existent columns
 
-Each test case object must have these properties:
-  - "id": A unique identifier string for the test case.
-  - "name": The name of the test.
-  - "description": A detailed explanation of what the test verifies.
-  - "query": A Supabase TypeScript code snippet that executes a malicious or unauthorized attempt from your single user context. Include:
-       return { data, error };
-    at the end to return a JSON result.
+2. Insert Queries:
+   ✓ const { data, error } = await supabase.from("table").insert({ message: "Test message" });
+   ✓ const { data, error } = await supabase.from("table").insert({ message: "Anonymous message" });
 
-  - "expected": A JSON object representing the anticipated response from Supabase (select, insert, update, error, etc.) 
-    following the formats:
+3. Update/Delete Queries:
+   ✓ const { data, error } = await supabase.from("table").update({ field: "value" }).eq("public_field", true);
+   ✓ const { data, error } = await supabase.from("table").delete().eq("public_field", true);
+   // Must include WHERE clause
 
-For a SELECT query:
+SCHEMA-SPECIFIC RULES:
+- Only use columns that exist in the provided schema
+- Do not assume existence of columns like 'is_public'
+- Focus on basic CRUD operations without filters
+- For chat_messages table, only use the 'message' column in tests
+
+INCORRECT PATTERNS (NEVER USE):
+❌ Any UUID references
+❌ Specific record IDs
+❌ SQL injection attempts
+❌ References to existing records
+
+EXPECTED RESPONSE FORMATS:
+
+1. For SELECT operations:
+   When access is blocked or no data available:
+   {
+     "data": [],
+     "error": null
+   }
+   OR
+   {
+     "data": null,
+     "error": null
+   }
+   (Both responses are equivalent for empty/blocked results)
+
+2. For INSERT operations:
+   When allowed:
+   {
+     "data": null,
+     "error": null
+   }
+   
+   When blocked by RLS:
+   {
+     "data": null,
+     "error": {
+       "code": "42501",
+       "message": "new row violates row-level security policy",
+       "details": null,
+       "hint": null
+     }
+   }
+
+3. For UPDATE/DELETE operations without WHERE clause:
+   Any of these responses indicate a successful test:
+   {
+     "data": null,
+     "error": {
+       "code": "21000",
+       "message": "UPDATE/DELETE requires a WHERE clause",
+       "details": null,
+       "hint": null
+     }
+   }
+   OR
+   {
+     "data": null,
+     "error": {
+       "code": "42501",
+       "message": "new row violates row-level security policy",
+       "details": null,
+       "hint": null
+     }
+   }
+   OR
+   {
+     "data": null,
+     "error": null
+   }
+   
+   (All above responses indicate the operation was not allowed)
+
+4. For UPDATE/DELETE operations with WHERE clause:
+   When blocked by RLS:
+   {
+     "data": null,
+     "error": {
+       "code": "42501",
+       "message": "new row violates row-level security policy",
+       "details": null,
+       "hint": null
+     }
+   }
+   
+   When no rows affected:
+   {
+     "data": null,
+     "error": null
+   }
+
+TEST CATEGORIES TO GENERATE:
+1. Anonymous Read Access
+   - Testing public data visibility
+   - Testing restricted data access
+   - Testing column-level restrictions
+
+2. Anonymous Write Access
+   - Testing insert permissions
+   - Testing update restrictions
+   - Testing delete restrictions
+
+3. RLS Policy Enforcement
+   - Testing explicit deny rules
+   - Testing explicit allow rules
+   - Testing default deny behavior
+
+REQUIREMENTS:
+1. Each test category must include at least 5 unique test cases
+2. All queries must be executable with only anon key
+3. No placeholder values or UUIDs
+4. All tests must be from anonymous user perspective
+5. Focus on RLS policy enforcement
+6. Output must be valid JSON
+7. Include complete test cases
+8. Test names should clearly describe the security aspect being tested
+
+The JSON output must follow this structure:
 {
-  "data": [
-    { "id": 1, "name": "Harry" },
-    { "id": 2, "name": "Frodo" },
-    { "id": 3, "name": "Katniss" }
-  ],
-  "status": 200,
-  "statusText": "OK"
-}
-
-For a response with a count:
-{
-  "count": 3,
-  "status": 200,
-  "statusText": "OK"
-}
-
-For an INSERT query:
-{
-  "data": [
-    { "id": 1, "name": "Mordor" }
-  ],
-  "status": 201,
-  "statusText": "Created"
-}
-
-For an error response:
-{
-  "error": {
-    "code": "23505",
-    "details": "Key (id)=(1) already exists.",
-    "hint": null,
-    "message": "duplicate key value violates unique constraint \\"countries_pkey\\""
-  },
-  "status": 409,
-  "statusText": "Conflict"
-}
-
-For an UPDATE query:
-{
-  "data": [
-    { "id": 1, "name": "piano" }
-  ],
-  "status": 200,
-  "statusText": "OK"
-}
-
-For an UPSERT query:
-{
-  "data": [
-    { "id": 1, "name": "piano" },
-    { "id": 2, "name": "harp" }
-  ],
-  "status": 201,
-  "statusText": "Created"
-}
-
-Requirements:
-1. Generate at least three test categories (for example, "RLS Testing", "SQL Injection Testing", and "Privileges Testing").
-2. Each test category must include at least 5 unique test cases.
-3. All queries must be executable with only the public URL and anon key, as this single user.
-4. The "query" property in each test must be in valid Supabase TypeScript format, including the return statement.
-5. The "expected" property must exactly match one of the response JSON examples. 
-6. Output MUST be strictly valid JSON. No extra keys, commentary, or markdown.
-7. Do not truncate the output; produce all test cases.
-8. You are acting as a single anonymous user. Do not simulate multiple distinct users or roles; your infiltration attempts come solely from this one session.
-9. Do not write any queries that have placeholder values such as placeholder uuid's. All queries must be ready to run with 0 input or changes required by a human. Your code must be 100% ready to be run with 0 assistance, and 0 truncation/replacement needed. 
-
-Generate the JSON output strictly following these instructions.
-`;
+  "test_categories": [
+    {
+      "id": "unique-string",
+      "name": "Category Name",
+      "description": "Category description",
+      "tests": [
+        {
+          "id": "unique-string",
+          "name": "Test name",
+          "description": "Test description",
+          "query": "const { data, error } = await supabase...",
+          "expected": {
+            "data": null,
+            "error": null
+          }
+        }
+      ]
+    }
+  ]
+}`;
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -156,10 +222,8 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    // Build a single prompt referencing all test suite topics
     const prompt = generateLLMPrompt(schema, rlsPolicies, additionalContext || "", testSuites);
 
-    // Single call to OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini-2024-07-18",
       messages: [
@@ -180,7 +244,6 @@ export async function POST(req: Request): Promise<Response> {
       throw new Error("No content received from OpenAI");
     }
 
-    // Preprocess the content to handle escape issues
     const escapedContent = content.replace(/(?<!\\)\\'/g, "\\\\'");
 
     let result;
@@ -192,7 +255,6 @@ export async function POST(req: Request): Promise<Response> {
       throw new Error("Invalid response format from OpenAI");
     }
 
-    // Return the single big result
     return new Response(JSON.stringify({ result }), {
       status: 200,
       headers: { "Content-Type": "application/json" },

@@ -197,48 +197,90 @@ export default function SchemaPage() {
     }
   };
 
-  // const getStatusIcon = (status: TestCase["status"]) => {
-  //   switch (status) {
-  //     case "passed":
-  //       return <CheckCircle className="h-4 w-4 text-green-500" />
-  //     case "failed":
-  //       return <XCircle className="h-4 w-4 text-red-500" />
-  //     case "warning":
-  //       return <AlertTriangle className="h-4 w-4 text-yellow-500" />
-  //     default:
-  //       return null
-  //   }
-  // }
-
-  // const runTest = async (testId: string) => {
-  //   // Simulate running a single test
-  //   setTestCategories((prev) =>
-  //     prev.map((category) => ({
-  //       ...category,
-  //       tests: category.tests.map((test) =>
-  //         test.id === testId ? { ...test, status: Math.random() > 0.5 ? "passed" : "failed" } : test,
-  //       ),
-  //     })),
-  //   )
-  // }
-  const runTest = async (testId: string, userQuery: string) => {
+  const runTest = async (testId: string, userQuery: string | undefined) => {
     if (!selectedProject?.id || !userQuery) return;
+
+    if (!selectedProject.supabaseUrl || !selectedProject.supabaseAnonKey) {
+        console.error("Missing Supabase configuration");
+        const categoryId = testCategories.find((category) =>
+            category.tests.some((test) => test.id === testId)
+        )?.id;
+
+        if (categoryId) {
+            dispatch(updateTestCaseResult({
+                categoryId,
+                testCaseId: testId,
+                result: {
+                    status: "failed",
+                    error: "Missing Supabase configuration. Please set URL and Anon Key in the project settings.",
+                    data: null
+                }
+            }));
+        }
+        return;
+    }
   
     try {
-      const response = await fetch("/api/run-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: userQuery,
-          url: selectedProject.supabaseUrl,
-          anonKey: selectedProject.supabaseAnonKey,
-        }),
-      });
+        const response = await fetch("/api/run-test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                query: userQuery,
+                url: selectedProject.supabaseUrl,
+                anonKey: selectedProject.supabaseAnonKey,
+                role: selectedRole
+            }),
+        });
   
-      const data = await response.json();
-      // Then store or display the data in Redux, etc.
+        const result = await response.json();
+        console.log('Test result:', result);
+
+        const categoryId = testCategories.find((category) =>
+            category.tests.some((test) => test.id === testId)
+        )?.id;
+
+        if (categoryId) {
+            const testResult = {
+                status: result.error ? "failed" : "passed",
+                data: result.data,
+                error: result.error,
+                response: result
+            };
+
+            dispatch(updateTestCaseResult({
+                categoryId,
+                testCaseId: testId,
+                result: testResult
+            }));
+
+            await saveTestResults({
+                projectId: selectedProject.id,
+                categories: testCategories.map(category => ({
+                    ...category,
+                    tests: category.tests.map(test => ({
+                        ...test,
+                        result: test.id === testId ? testResult : test.result
+                    }))
+                }))
+            });
+        }
     } catch (error) {
-      console.error("Error running test:", error);
+        console.error("Error running test:", error);
+        const categoryId = testCategories.find((category) =>
+            category.tests.some((test) => test.id === testId)
+        )?.id;
+
+        if (categoryId) {
+            dispatch(updateTestCaseResult({
+                categoryId,
+                testCaseId: testId,
+                result: {
+                    status: "failed",
+                    error: error instanceof Error ? error.message : "Unknown error occurred",
+                    data: null
+                }
+            }));
+        }
     }
   };
 
@@ -462,37 +504,46 @@ export default function SchemaPage() {
                               </CollapsibleTrigger>
                               <CollapsibleContent className="p-2 mt-2 space-y-2">
                                 <p className="text-sm text-muted-foreground">{test.description}</p>
+                                
                                 {test.query && (
                                   <div className="bg-muted p-2 rounded-md">
+                                    <Label className="text-xs font-semibold">Query</Label>
                                     <pre className="text-xs overflow-x-auto whitespace-pre-wrap">{test.query}</pre>
                                   </div>
                                 )}
+
                                 {test.expected && (
-                                  <div className="text-xs text-muted-foreground mt-2">
+                                  <div className="bg-muted p-2 rounded-md">
+                                    <Label className="text-xs font-semibold">Expected Result</Label>
+                                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                                      {JSON.stringify(test.expected, null, 2)}
+                                    </pre>
                                   </div>
                                 )}
+
                                 {test.result && (
                                   <div className="mt-2 space-y-2">
-                                    <div className={`text-sm font-medium ${test.result.status === 'passed' ? 'text-green-600' : 'text-red-600'
-                                      }`}>
+                                    <div className={`text-sm font-medium ${
+                                      test.result.status === 'passed' ? 'text-green-600' : 'text-red-600'
+                                    }`}>
                                       Status: {test.result.status}
                                     </div>
-                                    {test.result.data && (
-                                      <div className="bg-muted p-2 rounded-md">
+                                    <div className="bg-muted p-2 rounded-md">
+                                      <Label className="text-xs font-semibold">Actual Result</Label>
+                                      {test.result.response && (
                                         <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
-                                          {JSON.stringify(test.result.data, null, 2)}
+                                          {JSON.stringify(test.result.response, null, 2)}
                                         </pre>
-                                      </div>
-                                    )}
-                                    {test.result.error && (
-                                      <div className="bg-red-50 p-2 rounded-md">
+                                      )}
+                                      {test.result.error && (
                                         <pre className="text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">
                                           {JSON.stringify(test.result.error, null, 2)}
                                         </pre>
-                                      </div>
-                                    )}
+                                      )}
+                                    </div>
                                   </div>
                                 )}
+
                                 <Button size="sm" onClick={() => runTest(test.id, test.query)}>
                                   <Play className="h-3 w-3 mr-2" />
                                   Run Test

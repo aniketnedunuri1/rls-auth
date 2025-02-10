@@ -25,11 +25,11 @@ model Project {
   name              String
   userId            String
   user              User     @relation(fields: [userId], references: [id])
-  dbSchema          String   // Stores the SQL for the database schema
-  rlsSchema         String   // Stores the RLS policies (SQL)
+  dbSchema          String?   // Stores the SQL for the database schema
+  rlsSchema         String?   // Stores the RLS policies (SQL)
   additionalContext String?  // Optional additional context if needed
   supabaseUrl       String?  // Optional supabase url if needed
-  supabaseAnonKey       String?  // Optional supabase key if needed
+  supabaseAnonKey   String?  // Optional supabase key if needed
   tests             Test[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

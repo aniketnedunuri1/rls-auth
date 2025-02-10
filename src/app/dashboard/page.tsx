@@ -1,42 +1,3 @@
-// // /app/dashboard/page.tsx
-// "use client";
-
-// import {
-//   Card,
-//   CardContent,
-//   CardHeader,
-//   CardTitle,
-//   CardDescription,
-//   CardFooter,
-// } from "@/components/ui/card";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { createProjectAction } from "@/lib/actions/project";
-
-// export default function DashboardPage() {
-//   return (
-//     <div className="flex items-center justify-center h-screen bg-background">
-//       <Card className="w-96 p-6 text-center">
-//         <CardHeader>
-//           <CardTitle className="text-2xl font-bold">Get started</CardTitle>
-//           <CardDescription className="mt-2 text-gray-600">
-//             Create a new project to begin.
-//           </CardDescription>
-//         </CardHeader>
-//         <CardContent className="mt-4">
-//           {/* The form submits directly to the server action */}
-//           <form action={createProjectAction}>
-//             <Input name="projectName" placeholder="Project Name" required />
-//             <CardFooter className="mt-4">
-//               <Button type="submit">Create Project</Button>
-//             </CardFooter>
-//           </form>
-//         </CardContent>
-//       </Card>
-//     </div>
-//   );
-// }
-
 "use client";
 
 import {
@@ -68,8 +29,8 @@ export default function DashboardPage() {
       if (!newProject) return;
 
       dispatch(selectProject(newProject)); // Set selected project
-      const updatedProjects = await fetchProjects(); // Fetch updated project list
-      dispatch(setProjects(updatedProjects));
+      const response = await fetchProjects();
+      dispatch(setProjects({ projects: response.projects }));
 
       router.push(`/dashboard/schema/${newProject.id}`); // Redirect user
     } catch (error) {

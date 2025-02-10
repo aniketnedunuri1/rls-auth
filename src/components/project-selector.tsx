@@ -17,12 +17,12 @@ export default function ProjectSelector() {
   useEffect(() => {
     async function loadProjects() {
       try {
-        const { projects, selectedProjectId } = await fetchProjects();
-        dispatch(setProjects(projects));
+        const response = await fetchProjects();
+        dispatch(setProjects({ projects: response.projects }));
   
         // ✅ Only update selectedProject if it's null (prevents unwanted resets)
-        if (!selectedProject && selectedProjectId) {
-          const foundProject = projects.find((p) => p.id === selectedProjectId);
+        if (!selectedProject && response.selectedProjectId) {
+          const foundProject = response.projects.find((p) => p.id === response.selectedProjectId);
           if (foundProject) {
             dispatch(selectProject(foundProject));
           }

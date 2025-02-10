@@ -1,14 +1,14 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { updateProjectAction } from "@/lib/actions/project";
 
-interface Project {
+// Make this match the Prisma schema exactly
+export interface Project {
   id: string;
   name: string;
-  dbSchema?: string;
-  rlsSchema?: string;
-  additionalContext?: string;
-  supabaseUrl?: string;
-  supabaseAnonKey?: string;
+  dbSchema?: string | null;
+  rlsSchema?: string | null;
+  additionalContext?: string | null;
+  supabaseUrl?: string | null;
+  supabaseAnonKey?: string | null;
 }
 
 interface ProjectState {
@@ -25,9 +25,10 @@ const projectSlice = createSlice({
   name: "project",
   initialState,
   reducers: {
-    setProjects: (state, action: PayloadAction<Project[]>) => {
-      state.projects = action.payload;
-      if (state.projects.length > 0 && !state.selectedProject) {
+    setProjects: (state, action: PayloadAction<{ projects: Project[] }>) => {
+      // Add safety check for undefined projects
+      state.projects = action.payload.projects || [];
+      if (state.projects?.length > 0 && !state.selectedProject) {
         state.selectedProject = state.projects[0];
       }
     },
@@ -54,7 +55,7 @@ const projectSlice = createSlice({
         state.selectedProject.supabaseUrl = action.payload.value;
       }
     },
-    setSupabaseAnonKey: (state, action: PayloadAction<{ projectId: string; value: string }>) => { 
+    setSupabaseAnonKey: (state, action: PayloadAction<{ projectId: string; value: string }>) => {
       if (state.selectedProject && state.selectedProject.id === action.payload.projectId) {
         state.selectedProject.supabaseAnonKey = action.payload.value;
       }
@@ -62,6 +63,14 @@ const projectSlice = createSlice({
   },
 });
 
-export const { setProjects, selectProject, setSchema, setRLSPolicies, setSupabaseUrl, setSupabaseAnonKey, setAdditionalContext } =
-  projectSlice.actions;
+export const {
+  setProjects,
+  selectProject,
+  setSchema,
+  setRLSPolicies,
+  setSupabaseUrl,
+  setSupabaseAnonKey,
+  setAdditionalContext,
+} = projectSlice.actions;
+
 export default projectSlice.reducer;

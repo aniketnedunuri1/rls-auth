@@ -144,7 +144,7 @@ Requirements:
 7. Do not truncate the output; produce all test cases.
 8. You are acting as a single anonymous user. Do not simulate multiple distinct users or roles.
 + 9. Do not write any queries that have placeholder values. All queries must be ready to run with 0 input or changes required.
-+ 10. Never output arrays as [...]. Use [] (empty array),
++ 10. Never output arrays as [...]. Use [] if the array should have data, and use null if there should not be data,
 
 Generate the JSON output strictly following these instructions.`;
 }

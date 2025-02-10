@@ -197,6 +197,24 @@ export default function SchemaPage() {
     }
   };
 
+  const compareResults = (expected: any, actual: any) => {
+    // If expecting an error
+    if (expected.error) {
+        return actual.error && 
+               actual.error.code === expected.error.code &&
+               actual.error.message === expected.error.message;
+    }
+    
+    // If expecting data
+    if (expected.data !== null) {
+        return actual.data !== null && 
+               Array.isArray(actual.data) === Array.isArray(expected.data);
+    }
+    
+    // If expecting null data and no error
+    return actual.data === expected.data && actual.error === expected.error;
+  };
+
   const runTest = async (testId: string, userQuery: string | undefined) => {
     if (!selectedProject?.id || !userQuery) return;
 
@@ -240,8 +258,14 @@ export default function SchemaPage() {
         )?.id;
 
         if (categoryId) {
+            const test = testCategories
+                .find(cat => cat.id === categoryId)
+                ?.tests.find(t => t.id === testId);
+
+            const passed = test ? compareResults(test.expected, result) : false;
+
             const testResult = {
-                status: result.error ? "failed" : "passed",
+                status: passed ? "passed" : "failed",
                 data: result.data,
                 error: result.error,
                 response: result
@@ -252,17 +276,6 @@ export default function SchemaPage() {
                 testCaseId: testId,
                 result: testResult
             }));
-
-            await saveTestResults({
-                projectId: selectedProject.id,
-                categories: testCategories.map(category => ({
-                    ...category,
-                    tests: category.tests.map(test => ({
-                        ...test,
-                        result: test.id === testId ? testResult : test.result
-                    }))
-                }))
-            });
         }
     } catch (error) {
         console.error("Error running test:", error);
@@ -488,6 +501,13 @@ export default function SchemaPage() {
                               key={test.id}
                               open={expandedTests.includes(test.id)}
                               onOpenChange={() => toggleTest(test.id)}
+                              className={`${
+                                  test.result 
+                                      ? test.result.status === 'passed'
+                                          ? 'border-2 border-green-500'
+                                          : 'border-2 border-red-500'
+                                      : 'border border-gray-200'
+                              } rounded-md mb-2`}
                             >
                               <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-muted rounded-md">
                                 <div className="flex items-center gap-2">
@@ -530,16 +550,9 @@ export default function SchemaPage() {
                                     </div>
                                     <div className="bg-muted p-2 rounded-md">
                                       <Label className="text-xs font-semibold">Actual Result</Label>
-                                      {test.result.response && (
-                                        <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
-                                          {JSON.stringify(test.result.response, null, 2)}
-                                        </pre>
-                                      )}
-                                      {test.result.error && (
-                                        <pre className="text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">
-                                          {JSON.stringify(test.result.error, null, 2)}
-                                        </pre>
-                                      )}
+                                      <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                                        {JSON.stringify(test.result.response, null, 2)}
+                                      </pre>
                                     </div>
                                   </div>
                                 )}

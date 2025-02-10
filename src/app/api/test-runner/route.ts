@@ -47,8 +47,8 @@ Using the provided information, generate a JSON object that defines a comprehens
 IMPORTANT ROLE AND ACCESS RULES:
 - You are STRICTLY an anonymous authenticated user (via signInAnonymously)
 - You have NO access to any UUIDs or existing records. No queries should reference UUIDs or existing records. All queries must be strictly acting as an anonymous user.
-- NEVER use placeholder UUIDs or IDs like 'non_existing_id' or 'some-uuid'
-- Only attempt operations that a real anonymous user could perform
+- NEVER use placeholder UUIDs or IDs like 'non_existing_id' or 'some-uuid' or 'fake-uuid' or 'placeholder-uuid'. If a query requires a UUID, you must regenerate the query without it, or you must generate a new query that does not have a UUID.
+- Only attempt operations that a real anonymous user could perform, with no access to any UUIDs or existing records.
 - Do not assume you can reference specific records or users
 - All queries must work without modification or placeholder values
 - Focus on testing RLS policies and access restrictions from an anonymous context
@@ -135,7 +135,7 @@ For a constraint violation:
 
 
 Requirements:
-1. Generate at least three test categories (for example, "RLS Testing", "SQL Injection Testing", and "Privileges Testing").
+1. Generate at least three test categories (for example, "RLS Testing", "SQL Injection Testing", and "Privileges Testing") and anyother categories you see fit after analyzing the schema and RLS policies.
 2. Each test category must include at least 5 unique test cases.
 3. All queries must be executable with only the public URL and anon key, as this single anonymous user.
 4. The "query" property in each test must be in valid Supabase TypeScript format, including the return statement.
@@ -143,8 +143,9 @@ Requirements:
 6. Output MUST be strictly valid JSON. No extra keys, commentary, or markdown.
 7. Do not truncate the output; produce all test cases.
 8. You are acting as a single anonymous user. Do not simulate multiple distinct users or roles.
-+ 9. Do not write any queries that have placeholder values. All queries must be ready to run with 0 input or changes required.
-+ 10. Never output arrays as [...]. Use [] if the array should have data, and use null if there should not be data,
+9. Do not write any queries that have placeholder values. All queries must be ready to run with 0 input or changes required.
+10. Never output arrays as [...]. Use [] if the array should have data, and use null if there should not be data,
+11. Do not use placeholder UUIDs or IDs like 'non_existing_id' or 'some-uuid' or 'fake-uuid' or 'placeholder-uuid'. If you do, you must regenerate the query.
 
 Generate the JSON output strictly following these instructions.`;
 }

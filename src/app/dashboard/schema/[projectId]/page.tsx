@@ -54,6 +54,20 @@ interface DatabaseProvider {
   logo: string
 }
 
+interface TestResult {
+    status: 'passed' | 'failed';
+    data: any;
+    error: any;
+    response: any;
+}
+
+interface ExpectedResult {
+    data: any;
+    error: any;
+    status?: number;
+    statusText?: string;
+}
+
 const databaseProviders: DatabaseProvider[] = [
   { id: "supabase", name: "Supabase", logo: "/logos/supabase.svg" },
   { id: "firebase", name: "Firebase", logo: "/logos/firebase.svg" },
@@ -197,22 +211,106 @@ export default function SchemaPage() {
     }
   };
 
-  const compareResults = (expected: any, actual: any) => {
-    // If expecting an error
+  const compareResults = (expected: ExpectedResult, actual: any, query: string) => {
+    console.log('Comparing results:', { expected, actual, query });
+
+    // Helper function to check if response contains data when it shouldn't
+    const hasUnexpectedData = (data: any) => {
+        return data !== null && Array.isArray(data) && data.length > 0;
+    };
+
+    // Helper to determine if this is a select query
+    const isSelectQuery = (q: string) => q.includes('.select(');
+    
+    // Helper to determine if this is an insert query
+    const isInsertQuery = (q: string) => q.includes('.insert(');
+    
+    // Helper to determine if this is an update query
+    const isUpdateQuery = (q: string) => q.includes('.update(');
+    
+    // Helper to determine if this is a delete query
+    const isDeleteQuery = (q: string) => q.includes('.delete(');
+
+    // For SELECT queries
+    if (isSelectQuery(query)) {
+        // If we expect empty data ([] or null) but got actual data
+        if ((!expected.data || (Array.isArray(expected.data) && expected.data.length === 0)) 
+            && hasUnexpectedData(actual.data)) {
+            console.log('SELECT query failed: Expected empty result but got data');
+            return false;
+        }
+        
+        // If we expect an error but didn't get one
+        if (expected.error && !actual.error) {
+            console.log('SELECT query failed: Expected error but got none');
+            return false;
+        }
+    }
+
+    // For INSERT queries
+    if (isInsertQuery(query)) {
+        // For successful inserts
+        if (!expected.error) {
+            // Should either return empty array or null for data
+            if (actual.error || (actual.data !== null && !Array.isArray(actual.data))) {
+                console.log('INSERT query failed: Unexpected response format');
+                return false;
+            }
+            return true;
+        }
+        
+        // For failed inserts
+        if (expected.error) {
+            return actual.error && 
+                   actual.error.code === expected.error.code;
+        }
+    }
+
+    // For UPDATE queries
+    if (isUpdateQuery(query)) {
+        // If expecting error (unauthorized update)
+        if (expected.error) {
+            return actual.error && 
+                   actual.error.code === expected.error.code;
+        }
+        
+        // If expecting success
+        return !actual.error && 
+               (actual.data === null || Array.isArray(actual.data));
+    }
+
+    // For DELETE queries
+    if (isDeleteQuery(query)) {
+        // If expecting error (unauthorized delete)
+        if (expected.error) {
+            return actual.error && 
+                   actual.error.code === expected.error.code;
+        }
+        
+        // If expecting success
+        return !actual.error && 
+               (actual.data === null || Array.isArray(actual.data));
+    }
+
+    // Generic error comparison
     if (expected.error) {
         return actual.error && 
                actual.error.code === expected.error.code &&
                actual.error.message === expected.error.message;
     }
-    
-    // If expecting data
-    if (expected.data !== null) {
-        return actual.data !== null && 
-               Array.isArray(actual.data) === Array.isArray(expected.data);
+
+    // Generic data comparison for other cases
+    if (expected.data === null) {
+        return actual.data === null && actual.error === null;
     }
-    
-    // If expecting null data and no error
-    return actual.data === expected.data && actual.error === expected.error;
+
+    if (Array.isArray(expected.data) && expected.data.length === 0) {
+        return (actual.data === null || (Array.isArray(actual.data) && actual.data.length === 0)) 
+               && actual.error === null;
+    }
+
+    console.log('Fallback comparison failed');
+    return false;
   };
 
   const runTest = async (testId: string, userQuery: string | undefined) => {
@@ -262,20 +360,23 @@ export default function SchemaPage() {
                 .find(cat => cat.id === categoryId)
                 ?.tests.find(t => t.id === testId);
 
-            const passed = test ? compareResults(test.expected, result) : false;
+            if (test) {
+                const passed = compareResults(test.expected, result, test.query || '');
+                console.log('Test comparison result:', { passed, test, result });
 
-            const testResult = {
-                status: passed ? "passed" : "failed",
-                data: result.data,
-                error: result.error,
-                response: result
-            };
+                const testResult: TestResult = {
+                    status: passed ? "passed" : "failed",
+                    data: result.data,
+                    error: result.error,
+                    response: result
+                };
 
-            dispatch(updateTestCaseResult({
-                categoryId,
-                testCaseId: testId,
-                result: testResult
-            }));
+                dispatch(updateTestCaseResult({
+                    categoryId,
+                    testCaseId: testId,
+                    result: testResult
+                }));
+            }
         }
     } catch (error) {
         console.error("Error running test:", error);
@@ -550,9 +651,16 @@ export default function SchemaPage() {
                                     </div>
                                     <div className="bg-muted p-2 rounded-md">
                                       <Label className="text-xs font-semibold">Actual Result</Label>
-                                      <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
-                                        {JSON.stringify(test.result.response, null, 2)}
-                                      </pre>
+                                      {test.result.response && (
+                                        <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                                          {JSON.stringify(test.result.response, null, 2)}
+                                        </pre>
+                                      )}
+                                      {test.result.error && (
+                                        <pre className="text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">
+                                          {JSON.stringify(test.result.error, null, 2)}
+                                        </pre>
+                                      )}
                                     </div>
                                   </div>
                                 )}

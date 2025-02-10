@@ -236,8 +236,10 @@ export default function SchemaPage() {
 
     // For SELECT queries
     if (isSelectQuery) {
+        // When access is blocked or no data is available
         if (Array.isArray(expected.data) && expected.data.length === 0) {
             return (
+                // Accept both empty array and null for data
                 (actual.error === null && Array.isArray(actual.data) && actual.data.length === 0) ||
                 (actual.error === null && actual.data === null)
             );

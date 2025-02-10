@@ -221,38 +221,22 @@ export default function SchemaPage() {
   //     })),
   //   )
   // }
-  const runTest = async (testId: string, query: string) => {
-    if (!selectedProject?.id || !query) return;
-
+  const runTest = async (testId: string, userQuery: string) => {
+    if (!selectedProject?.id || !userQuery) return;
+  
     try {
       const response = await fetch("/api/run-test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: `const { data, error } = await supabase${query}; return { data, error };`,
+          query: userQuery,
           url: selectedProject.supabaseUrl,
           anonKey: selectedProject.supabaseAnonKey,
         }),
       });
-
+  
       const data = await response.json();
-      
-      const categoryId = testCategories.find((category) =>
-        category.tests.some((test) => test.id === testId)
-      )?.id;
-
-      if (categoryId) {
-        dispatch(updateTestCaseResult({
-          categoryId,
-          testCaseId: testId,
-          result: {
-            status: data.error ? "failed" : "passed",
-            data: data.data,
-            error: data.error,
-            statusText: response.statusText
-          },
-        }));
-      }
+      // Then store or display the data in Redux, etc.
     } catch (error) {
       console.error("Error running test:", error);
     }

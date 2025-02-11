@@ -16,6 +16,11 @@ interface ResultsClientProps {
   projectId: string;
 }
 
+interface Solution {
+  description: string;
+  query: string;
+}
+
 export function ResultsClient({ projectId }: ResultsClientProps) {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -53,14 +58,6 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
         throw new Error('No project selected');
       }
 
-      // Log the full test object and its ID
-      console.log('Test object:', {
-        id: test.id,
-        name: test.name,
-        categoryId: test.categoryId,
-        fullTest: test
-      });
-
       const response = await fetch('/api/generate-solution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -72,22 +69,19 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
       });
 
       const data = await response.json();
-      console.log('API response:', data);
       
       if (!data.success || !data.solution) {
         throw new Error(data.error || 'Failed to generate solution');
       }
 
-      // Log before saving
-      console.log('About to save solution. Test ID:', test.id);
-      const saveResult = await saveSolution(test.id, data.solution);
-      console.log('Save result:', saveResult);
-
+      // Save only the SQL query part to the database
+      const saveResult = await saveSolution(test.id, data.solution.query);
+      
       if (!saveResult.success) {
         throw new Error(saveResult.error || 'Failed to save solution');
       }
 
-      // Update Redux store
+      // Update Redux store with both description and query for display
       const category = testCategories.find(cat => 
         cat.tests.some(t => t.id === test.id)
       );
@@ -96,7 +90,7 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
         dispatch(updateTestSolution({
           categoryId: category.id,
           testId: test.id,
-          solution: data.solution
+          solution: data.solution // Store full solution in Redux for display
         }));
       }
       
@@ -205,13 +199,27 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
                       {test.result?.status === "failed" && (
                         <div className="mt-4">
                           {test.solution ? (
-                            <div className="bg-green-50 p-3 rounded-md">
-                              <h4 className="text-sm font-medium text-green-900 mb-2">
-                                Recommended Fix:
-                              </h4>
-                              <pre className="text-xs text-green-800 whitespace-pre-wrap">
-                                {test.solution}
-                              </pre>
+                            <div className="space-y-4">
+                              <div className="bg-green-50 p-4 rounded-md">
+                                <h4 className="text-sm font-medium text-green-900 mb-2">
+                                  Recommended Fix:
+                                </h4>
+                                <div className="text-sm text-green-800 mb-4">
+                                  {typeof test.solution === 'string' 
+                                    ? JSON.parse(test.solution).description 
+                                    : test.solution.description}
+                                </div>
+                                <div className="bg-green-100 p-3 rounded">
+                                  <h5 className="text-sm font-medium text-green-900 mb-2">
+                                    SQL Query:
+                                  </h5>
+                                  <pre className="text-xs text-green-800 whitespace-pre-wrap">
+                                    {typeof test.solution === 'string' 
+                                      ? JSON.parse(test.solution).query 
+                                      : test.solution.query}
+                                  </pre>
+                                </div>
+                              </div>
                             </div>
                           ) : (
                             <Button

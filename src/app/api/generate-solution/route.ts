@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const { test, dbSchema, currentRLS } = await request.json();
 
     const prompt = `
-As a database security expert, analyze this failed security test and provide a specific RLS policy solution:
+As a database security expert, analyze this failed security test and provide a specific RLS policy solution.
 
 Test Details:
 - Name: ${test.name}
@@ -23,25 +23,29 @@ Current Database Context:
 - Current RLS Policy: ${currentRLS}
 
 Requirements:
-1. Provide a complete, ready-to-use RLS policy that would prevent this security issue
-2. Include brief comments explaining how the policy works
-3. Focus on preventing similar security vulnerabilities
-4. Format the response as a SQL policy statement with comments
+1. Respond ONLY with a valid JSON object in this exact format:
+{
+  "description": "A clear explanation of the error and recommended fix",
+  "query": "The complete SQL RLS policy statement"
+}
 
-Example format:
--- Description of what this policy does
--- Additional security considerations
-CREATE POLICY policy_name ON table_name
-  FOR operation_type
-  TO role_type
-  USING (security_condition);
-`;
+2. The description should explain:
+   - Why the query failed
+   - How the recommended fix addresses the issue
+   - A brief explanation of RLS policies
+
+3. The query must be:
+   - A complete, ready-to-use SQL RLS policy
+   - Compatible with the current schema
+   - Include inline comments explaining its purpose
+
+Important: Ensure the response is ONLY the JSON object, with no additional text or markdown.`;
 
     const completion = await openai.chat.completions.create({
       messages: [
         {
           role: "system",
-          content: "You are a database security expert specializing in Supabase Row Level Security policies."
+          content: "You are a database security expert. Respond only with valid JSON containing 'description' and 'query' fields."
         },
         {
           role: "user",
@@ -50,14 +54,24 @@ CREATE POLICY policy_name ON table_name
       ],
       model: "gpt-4o-mini-2024-07-18",
       temperature: 0.7,
+      response_format: { type: "json_object" }
     });
 
-    const solution = completion.choices[0]?.message?.content;
+    const content = completion.choices[0]?.message?.content;
+    let parsedResponse;
+    
+    try {
+      parsedResponse = JSON.parse(content || "");
+    } catch (e) {
+      console.error("Failed to parse LLM response:", e);
+      throw new Error("Invalid response format");
+    }
 
     return NextResponse.json({ 
       success: true, 
-      solution 
+      solution: parsedResponse // Frontend will handle extracting query vs description
     });
+
   } catch (error) {
     console.error('Error generating solution:', error);
     return NextResponse.json(

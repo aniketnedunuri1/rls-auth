@@ -160,45 +160,23 @@ export async function generateAndSaveSolution(test: TestCase, projectId: string)
 }
 
 export async function saveSolution(testId: string, solution: string) {
-  'use server';
-  
-  console.log('saveSolution called with testId:', testId);
   try {
-    if (!testId || !solution) {
-      throw new Error('Missing required parameters');
-    }
-
-    // Log all tests in the database
-    const allTests = await prisma.test.findMany({
-      select: { id: true, name: true }
+    const updatedTest = await prisma.test.update({
+      where: {
+        id: testId,
+      },
+      data: {
+        result: {
+          solution: solution  // Store solution within the result JSON field
+        }
+      },
     });
-    console.log('All tests in database:', allTests);
-
-    // Check if the test exists
-    const existingTest = await prisma.test.findUnique({
-      where: { id: testId }
-    });
-    
-    console.log('Found test?', existingTest ? 'Yes' : 'No');
-    if (existingTest) {
-      console.log('Existing test details:', existingTest);
-    }
-
-    if (!existingTest) {
-      throw new Error(`Test with ID ${testId} not found in database`);
-    }
-
-    console.log('Attempting to update test:', testId);
-    const result = await prisma.test.update({
-      where: { id: testId },
-      data: { solution }
-    });
-
-    console.log('Successfully updated test:', result);
-    return { success: true };
+    return { success: true, test: updatedTest };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    console.error('Error in saveSolution:', errorMessage);
-    return { success: false, error: errorMessage };
+    console.error('Error in saveSolution:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to save solution' 
+    };
   }
 } 

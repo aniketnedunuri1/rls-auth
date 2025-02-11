@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle, XCircle, MinusCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, MinusCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { saveSolution } from "@/lib/actions/tests";
@@ -48,6 +48,7 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
 
   const failedTests = totalTests - passedTests - notRunTests;
 
+  const [isFixingAll, setIsFixingAll] = useState(false);
   const [loadingSolutions, setLoadingSolutions] = useState<Record<string, boolean>>({});
 
   const handleGenerateSolution = async (test: TestCase) => {
@@ -101,22 +102,115 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
     }
   };
 
+  const handleFixAllTests = async () => {
+    setIsFixingAll(true);
+    try {
+      console.log("Starting Fix All Tests process...");
+      
+      const failedTests = testCategories.flatMap(category => 
+        category.tests.filter(test => test.result?.status === "failed")
+      );
+
+      const passedTests = testCategories.flatMap(category => 
+        category.tests.filter(test => test.result?.status === "passed")
+      );
+
+      console.log("Generating new RLS schema...");
+      const response = await fetch('/api/fix-all-tests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          failedTests: failedTests.map(test => ({
+            name: test.name,
+            query: test.query,
+            result: test.result,
+            description: test.description
+          })),
+          passedTests: passedTests.map(test => ({
+            name: test.name,
+            query: test.query
+          })),
+          dbSchema: selectedProject?.dbSchema,
+          currentRLS: selectedProject?.rlsSchema,
+          projectDescription: selectedProject?.description
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to generate solution');
+      }
+
+      console.log("New RLS schema generated:", data.solution);
+
+      // Update the project's RLS schema
+      console.log("Updating project RLS schema...");
+      const updateResponse = await fetch(`/api/projects/${projectId}/update-rls`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rlsSchema: data.solution
+        })
+      });
+
+      const updateData = await updateResponse.json();
+      if (!updateData.success) {
+        throw new Error(updateData.error || 'Failed to update RLS schema');
+      }
+
+      console.log("RLS schema updated successfully");
+      
+      // Small delay before redirect
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Redirect to schema page
+      console.log("Redirecting to schema page...");
+      router.push(`/dashboard/schema/${projectId}`);
+
+    } catch (error) {
+      console.error('Error fixing all tests:', error);
+      setIsFixingAll(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 max-w-5xl">
       <div className="mb-8 space-y-4">
-        <Button
-          variant="ghost"
-          onClick={() => router.back()}
-          className="mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Schema
-        </Button>
-        
-        <h1 className="text-3xl font-bold">Security Test Report</h1>
-        <p className="text-muted-foreground">
-          Project: {selectedProject?.name}
-        </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <Button
+              variant="ghost"
+              onClick={() => router.back()}
+              className="mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Schema
+            </Button>
+            <h1 className="text-3xl font-bold">Security Test Report</h1>
+            <p className="text-muted-foreground">
+              Project: {selectedProject?.name}
+            </p>
+          </div>
+          
+          {failedTests > 0 && (
+            <Button
+              onClick={handleFixAllTests}
+              disabled={isFixingAll}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isFixingAll ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Solution...
+                </>
+              ) : (
+                'Fix All Tests'
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4 mb-8">

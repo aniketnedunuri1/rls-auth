@@ -18,7 +18,7 @@ import "reactflow/dist/style.css";
 import { useDispatch, useSelector } from "react-redux";
 import { setSupabaseConfig } from "@/lib/schemaSlice";
 import { setSchema, setRLSPolicies, setAdditionalContext, setSupabaseUrl, setSupabaseAnonKey } from "@/lib/projectSlice";
-import { setTestCategories, updateTestCaseResult } from "@/lib/testsSlice";
+import { setTestCategories, updateTestCaseResult, updateTestQuery } from "@/lib/testsSlice";
 import type { RootState } from "@/lib/store";
 import Image from "next/image";
 import RoleSelector from "@/components/role-selector";
@@ -86,6 +86,7 @@ export default function SchemaPage() {
   const [activeProvider, setActiveProvider] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState("anon")
   const router = useRouter()
+  const [editedQueries, setEditedQueries] = useState<Record<string, string>>({});
 
   const debouncedUpdate = useCallback(
     debounce(async (projectId: string, dbSchema: string, rlsSchema: string, additionalContext: string) => {
@@ -278,6 +279,7 @@ export default function SchemaPage() {
                 (actual.error === null && actual.data === null) // Implicit denial
             );
         }
+
     }
 
     // Default comparison for other cases
@@ -299,11 +301,13 @@ export default function SchemaPage() {
     }
   
     try {
+        const queryToRun = editedQueries[testId] ?? userQuery;
+
         const response = await fetch("/api/run-test", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                query: userQuery,
+                query: queryToRun,
                 url: selectedProject.supabaseUrl,
                 anonKey: selectedProject.supabaseAnonKey,
                 role: selectedRole
@@ -323,13 +327,8 @@ export default function SchemaPage() {
                 ?.tests.find(t => t.id === testId);
 
             if (test) {
-                const passed = compareResults(test.expected, result, test.query);
-                console.log('Test comparison:', {
-                    expected: test.expected,
-                    actual: result,
-                    passed
-                });
-
+                const passed = compareResults(test.expected, result, queryToRun);
+                
                 const testResult = {
                     status: passed ? "passed" : "failed",
                     data: result.data,
@@ -337,16 +336,29 @@ export default function SchemaPage() {
                     response: result
                 };
 
+                // Update Redux
                 dispatch(updateTestCaseResult({
                     categoryId,
                     testCaseId: testId,
                     result: testResult
                 }));
+
+                // Save to database
+                await saveTestResults({
+                    projectId: selectedProject.id,
+                    categories: testCategories.map(category => ({
+                        ...category,
+                        tests: category.tests.map(t => 
+                            t.id === testId 
+                                ? { ...t, result: testResult }
+                                : t
+                        )
+                    }))
+                });
             }
         }
     } catch (error) {
         console.error("Error running test:", error);
-        // ... rest of error handling
     }
   };
 
@@ -361,6 +373,50 @@ export default function SchemaPage() {
     }
   };
 
+  const handleQueryEdit = useCallback(
+    async (categoryId: string, testId: string, newQuery: string) => {
+      if (!selectedProject?.id) return;
+
+      try {
+        // Update Redux state
+        dispatch(updateTestQuery({
+          categoryId,
+          testId,
+          query: newQuery
+        }));
+
+        // Update local state
+        setEditedQueries(prev => ({
+          ...prev,
+          [testId]: newQuery
+        }));
+
+        // Save to database - make sure we're using the updated categories
+        const updatedCategories = testCategories.map(category => ({
+          ...category,
+          tests: category.tests.map(test => 
+            test.id === testId 
+              ? { ...test, query: newQuery }
+              : test
+          )
+        }));
+
+        const result = await saveTestResults({
+          projectId: selectedProject.id,
+          categories: updatedCategories
+        });
+
+        if (!result.success) {
+          console.error("Failed to save test query:", result.error);
+          // Optionally revert changes if save failed
+        }
+      } catch (error) {
+        console.error("Error saving test query:", error);
+      }
+    },
+    [dispatch, selectedProject, testCategories]
+  );
+
   useEffect(() => {
     async function loadSavedTests() {
       if (!selectedProject?.id) return;
@@ -373,6 +429,21 @@ export default function SchemaPage() {
     
     loadSavedTests();
   }, [selectedProject?.id, dispatch]);
+
+  // Initialize editedQueries when tests are loaded
+  useEffect(() => {
+    if (testCategories.length > 0) {
+      const initialQueries: Record<string, string> = {};
+      testCategories.forEach(category => {
+        category.tests.forEach(test => {
+          if (test.query) {
+            initialQueries[test.id] = test.query;
+          }
+        });
+      });
+      setEditedQueries(initialQueries);
+    }
+  }, [testCategories]);
 
   return (
     <div className="h-screen flex">
@@ -421,7 +492,7 @@ export default function SchemaPage() {
                             debouncedUpdateConfig(
                               selectedProject.id,
                               e.target.value,
-                              selectedProject.supabaseAnonKey
+                              selectedProject.supabaseAnonKey || ""
                             );
                           }}
                         />
@@ -443,7 +514,7 @@ export default function SchemaPage() {
                             }));
                             debouncedUpdateConfig(
                               selectedProject.id,
-                              selectedProject.supabaseUrl,
+                              selectedProject.supabaseUrl || "",
                               e.target.value
                             );
                           }}
@@ -581,7 +652,31 @@ export default function SchemaPage() {
                                 {test.query && (
                                   <div className="bg-muted p-2 rounded-md">
                                     <Label className="text-xs font-semibold">Query</Label>
-                                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">{test.query}</pre>
+                                    <Textarea
+                                      value={editedQueries[test.id] ?? test.query}
+                                      onChange={(e) => {
+                                        const newQuery = e.target.value;
+                                        // Update local state
+                                        setEditedQueries(prev => ({
+                                          ...prev,
+                                          [test.id]: newQuery
+                                        }));
+                                        // Update Redux state immediately
+                                        dispatch(updateTestQuery({
+                                          categoryId: category.id,
+                                          testId: test.id,
+                                          query: newQuery
+                                        }));
+                                      }}
+                                      onBlur={async () => {
+                                        const editedQuery = editedQueries[test.id];
+                                        if (editedQuery && editedQuery !== test.query) {
+                                          await handleQueryEdit(category.id, test.id, editedQuery);
+                                        }
+                                      }}
+                                      className="mt-1 font-mono text-xs"
+                                      placeholder="Edit query..."
+                                    />
                                   </div>
                                 )}
 
@@ -617,7 +712,29 @@ export default function SchemaPage() {
                                   </div>
                                 )}
 
-                                <Button size="sm" onClick={() => runTest(test.id, test.query)}>
+                                <Button 
+                                  size="sm" 
+                                  onClick={async () => {
+                                    // Get the current value from the textbox
+                                    const currentQuery = editedQueries[test.id] ?? test.query;
+                                    
+                                    // Update both Redux and local state
+                                    dispatch(updateTestQuery({
+                                      categoryId: category.id,
+                                      testId: test.id,
+                                      query: currentQuery
+                                    }));
+
+                                    // Update local state to match
+                                    setEditedQueries(prev => ({
+                                      ...prev,
+                                      [test.id]: currentQuery
+                                    }));
+
+                                    // Run the test with the current value
+                                    await runTest(test.id, currentQuery);
+                                  }}
+                                >
                                   <Play className="h-3 w-3 mr-2" />
                                   Run Test
                                 </Button>
@@ -652,3 +769,4 @@ export default function SchemaPage() {
     </div>
   )
 }
+

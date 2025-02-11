@@ -1,5 +1,5 @@
 // src/lib/testsSlice.ts
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, PayloadAction, createAction } from "@reduxjs/toolkit";
 import { saveTestResults, loadTestResults } from '@/lib/actions/tests';
 
 export interface ExpectedOutcome {
@@ -87,6 +87,23 @@ export const testsSlice = createSlice({
         }
       }
     },
+    updateTestQuery: (
+      state,
+      action: PayloadAction<{
+        categoryId: string;
+        testId: string;
+        query: string;
+      }>
+    ) => {
+      const { categoryId, testId, query } = action.payload;
+      const category = state.categories.find(c => c.id === categoryId);
+      if (category) {
+        const test = category.tests.find(t => t.id === testId);
+        if (test) {
+          test.query = query;
+        }
+      }
+    },
   },
 });
 
@@ -94,6 +111,8 @@ export const {
   setTestCategories, 
   updateTestCaseResult, 
   clearTestResults,
-  updateTestSolution
+  updateTestSolution,
+  updateTestQuery
 } = testsSlice.actions;
+
 export default testsSlice.reducer;

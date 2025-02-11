@@ -51,8 +51,9 @@ IMPORTANT ROLE AND ACCESS RULES:
 - Only attempt operations that a real anonymous user could perform
 - Focus on testing RLS policies and access restrictions
 - For insert operations, use only required fields with actual values
-- For select operations, use only public field filtering
+- For select operations, use only required fields with actual values
 - Never use or reference UUIDs or specific record IDs
+- Ensure your testing suite is comprehensive and covers all aspects of RLS policies and all tables provided in the schema
 
 CORRECT TEST PATTERNS:
 1. Select Queries:
@@ -73,7 +74,6 @@ SCHEMA-SPECIFIC RULES:
 - Only use columns that exist in the provided schema
 - Do not assume existence of columns like 'is_public'
 - Focus on basic CRUD operations without filters
-- For chat_messages table, only use the 'message' column in tests
 
 INCORRECT PATTERNS (NEVER USE):
 ❌ Any UUID references
@@ -83,109 +83,116 @@ INCORRECT PATTERNS (NEVER USE):
 
 EXPECTED RESPONSE FORMATS:
 
-1. For SELECT operations:
-   When access is blocked or no data available:
-   {
-     "data": [],
-     "error": null
-   }
-   OR
-   {
-     "data": null,
-     "error": null
-   }
-   (Both responses are equivalent for empty/blocked results)
+1. For SELECT operations with no access:
+{
+  "success": true,
+  "data": [],
+  "error": null,
+  "status": 200,
+  "statusText": "OK",
+  "context": {
+    "userRole": "anon",
+    "operation": "SELECT"
+  }
+}
 
-2. For INSERT operations:
-   When allowed:
-   {
-     "data": null,
-     "error": null
-   }
-   
-   When blocked by RLS:
-   {
-     "data": null,
-     "error": {
-       "code": "42501",
-       "message": "new row violates row-level security policy",
-       "details": null,
-       "hint": null
-     }
-   }
+2. For SELECT operations with data:
+{
+  "success": true,
+  "data": [{ /* expected data shape */ }],
+  "error": null,
+  "status": 200,
+  "statusText": "OK",
+  "context": {
+    "userRole": "anon",
+    "operation": "SELECT"
+  }
+}
 
-3. For UPDATE/DELETE operations without WHERE clause:
-   Any of these responses indicate a successful test:
-   {
-     "data": null,
-     "error": {
-       "code": "21000",
-       "message": "UPDATE/DELETE requires a WHERE clause",
-       "details": null,
-       "hint": null
-     }
-   }
-   OR
-   {
-     "data": null,
-     "error": {
-       "code": "42501",
-       "message": "new row violates row-level security policy",
-       "details": null,
-       "hint": null
-     }
-   }
-   OR
-   {
-     "data": null,
-     "error": null
-   }
-   
-   (All above responses indicate the operation was not allowed)
+3. For blocked INSERT operations:
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "42501",
+    "details": null,
+    "hint": null,
+    "message": "new row violates row-level security policy for table \"table_name\""
+  },
+  "status": 403,
+  "statusText": "Forbidden",
+  "context": {
+    "userRole": "anon",
+    "operation": "INSERT"
+  }
+}
 
-4. For UPDATE/DELETE operations with WHERE clause:
-   When blocked by RLS:
-   {
-     "data": null,
-     "error": {
-       "code": "42501",
-       "message": "new row violates row-level security policy",
-       "details": null,
-       "hint": null
-     }
-   }
-   
-   When no rows affected:
-   {
-     "data": null,
-     "error": null
-   }
+4. For blocked UPDATE/DELETE operations:
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "42501",
+    "message": "new row violates row-level security policy",
+    "details": null,
+    "hint": null
+  },
+  "status": 403,
+  "statusText": "Forbidden",
+  "context": {
+    "userRole": "anon",
+    "operation": "UPDATE/DELETE"
+  }
+}
+
+5. For successful operations that should be blocked (security violation):
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "message": "Operation succeeded when it should have been blocked by RLS",
+    "code": "SECURITY_VIOLATION",
+    "details": "Anonymous user was able to perform restricted operation"
+  },
+  "status": 403,
+  "statusText": "Forbidden",
+  "context": {
+    "userRole": "anon",
+    "operation": "INSERT/UPDATE/DELETE"
+  }
+}
+
+Note: The 'timestamp' field in context will be ignored for comparison purposes.
 
 TEST CATEGORIES TO GENERATE:
-1. Anonymous Read Access
-   - Testing public data visibility
+1. Table-Level Read Access
+   - Testing anonymous read access for each table in schema
    - Testing restricted data access
    - Testing column-level restrictions
+   - Testing relationship-based access
 
-2. Anonymous Write Access
-   - Testing insert permissions
-   - Testing update restrictions
-   - Testing delete restrictions
+2. Table-Level Write Access
+   - Testing anonymous insert for each table
+   - Testing anonymous update for each table
+   - Testing anonymous delete for each table
+   - Testing foreign key constraints
 
 3. RLS Policy Enforcement
-   - Testing explicit deny rules
-   - Testing explicit allow rules
+   - Testing explicit deny rules for each table
+   - Testing explicit allow rules for each table
    - Testing default deny behavior
+   - Testing relationship-based policies
 
 REQUIREMENTS:
-1. Each test category must include at least 5 unique test cases
-2. All queries must be executable with only anon key
-3. No placeholder values or UUIDs
-4. All tests must be from anonymous user perspective
-5. Focus on RLS policy enforcement
-6. Output must be valid JSON
-7. Include complete test cases
-8. Test names should clearly describe the security aspect being tested
+1. Must generate tests for EVERY table defined in the schema
+2. Each table must have tests for all operations (SELECT, INSERT, UPDATE, DELETE)
+3. Each table must have at least 5 unique test cases
+4. All queries must be executable with only anon key
+5. No placeholder values or UUIDs
+6. All tests must be from anonymous user perspective
+7. Focus on RLS policy enforcement
+8. Output must be valid JSON
+9. Tests must respect table relationships and foreign key constraints
 
 The JSON output must follow this structure:
 {
@@ -201,8 +208,7 @@ The JSON output must follow this structure:
           "description": "Test description",
           "query": "const { data, error } = await supabase...",
           "expected": {
-            "data": null,
-            "error": null
+            (FOLLOW EXPECTED RESPONSE FORMAT AS STATED ABOVE)
           }
         }
       ]

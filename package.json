@@ -33,6 +33,7 @@
     "openai": "^4.82.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-hot-toast": "^2.5.1",
     "react-redux": "^9.2.0",
     "reactflow": "^11.11.4",
     "supabase": "^2.9.6",

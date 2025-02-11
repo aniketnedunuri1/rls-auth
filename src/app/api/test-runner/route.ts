@@ -52,34 +52,37 @@ IMPORTANT ROLE AND ACCESS RULES:
 - Focus on testing RLS policies and access restrictions
 - For insert operations, use only required fields with actual values
 - For select operations, use only required fields with actual values
-- Never use or reference UUIDs or specific record IDs
+- If a query you generate references a record ID, ensure to name it "insert-{table_name}-{record_id}"
 - Ensure your testing suite is comprehensive and covers all aspects of RLS policies and all tables provided in the schema
 
-CORRECT TEST PATTERNS:
+CORRECT TEST PATTERNS FOR ANON AUTH:
+
 1. Select Queries:
-   ✓ const { data, error } = await supabase.from("table").select("*");
-   ✓ const { data, error } = await supabase.from("table").select("message");
-   ❌ NO .eq() filters that reference IDs or non-existent columns
+   ✓ const { data, error } = await supabase.from("fans").select("*");
+   ✓ const { data, error } = await supabase.from("creators").select("id, authId").eq("id", "insert-{table_name}-{record_id}");
 
 2. Insert Queries:
-   ✓ const { data, error } = await supabase.from("table").insert({ message: "Test message" });
-   ✓ const { data, error } = await supabase.from("table").insert({ message: "Anonymous message" });
+   ✓ const { data, error } = await supabase.from("fans").insert({ authId: "anon_auth" });
+   ✓ const { data, error } = await supabase.from("chat_messages").insert({ 
+       senderId: "insert-{table_name}-{record_id}",
+       message: "Test message" 
+     });
 
 3. Update/Delete Queries:
-   ✓ const { data, error } = await supabase.from("table").update({ field: "value" }).eq("public_field", true);
-   ✓ const { data, error } = await supabase.from("table").delete().eq("public_field", true);
-   // Must include WHERE clause
+   ✓ const { data, error } = await supabase.from("fans")
+       .update({ authId: "new_anon_auth" })
+       .eq("id", "insert-{table_name}-{record_id}");
+   
+   ✓ const { data, error } = await supabase.from("chat_messages")
+       .delete()
+       .eq("id", "insert-{table_name}-{record_id}")
+       .eq("senderId", "insert-{table_name}-{record_id}");
 
 SCHEMA-SPECIFIC RULES:
 - Only use columns that exist in the provided schema
-- Do not assume existence of columns like 'is_public'
+- Do not assume existence of columns, if a column is not in the schema, do not use it in your queries
 - Focus on basic CRUD operations without filters
 
-INCORRECT PATTERNS (NEVER USE):
-❌ Any UUID references
-❌ Specific record IDs
-❌ SQL injection attempts
-❌ References to existing records
 
 EXPECTED RESPONSE FORMATS:
 
@@ -188,7 +191,7 @@ REQUIREMENTS:
 2. Each table must have tests for all operations (SELECT, INSERT, UPDATE, DELETE)
 3. Each table must have at least 5 unique test cases
 4. All queries must be executable with only anon key
-5. No placeholder values or UUIDs
+5. All queries must be unique and not repeat the same pattern, and they must be a full comprehensive test of the RLS policies and schema. Continue to generate unique queries until you have enough unique tests for each table.
 6. All tests must be from anonymous user perspective
 7. Focus on RLS policy enforcement
 8. Output must be valid JSON

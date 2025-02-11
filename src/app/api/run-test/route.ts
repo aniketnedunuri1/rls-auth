@@ -5,78 +5,98 @@ import { createClient } from "@supabase/supabase-js";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request): Promise<Response> {
-  console.log("API route hit: /api/run-test");
-
   try {
-    const body = await req.json();
-    const { query, url, anonKey } = body;
+    const { url, anonKey, query } = await req.json();
+    console.log("Received query:", query);
 
-    // Basic validation
-    if (!url || !anonKey || !query) {
-      return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+    // Create a client and sign in anonymously
+    const supabase = createClient(url, anonKey);
+    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+    if (authError) {
+      return NextResponse.json({
+        success: false,
+        error: authError.message,
+        status: 400,
+        statusText: "Authentication Failed",
+        context: "Anonymous sign-in failed"
+      }, { status: 400 });
     }
 
-    // Create an "anon" client
-    const supabaseAnon = createClient(url, anonKey);
-
-    // Sign in anonymously
-    const { data: anonSignInData, error: anonSignInError } = await supabaseAnon.auth.signInAnonymously();
-    if (anonSignInError || !anonSignInData?.session?.access_token) {
-      console.error("Anonymous sign in failed:", anonSignInError);
-      return NextResponse.json(
-        {
-          error: anonSignInError?.message ?? "Could not sign in anonymously",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Use the returned Access Token to create an AUTH'd client
-    const supabaseAuth = createClient(url, anonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${anonSignInData.session.access_token}`,
-        },
-      },
-    });
-
-    console.log("Executing user snippet:", query);
-
-    // Build and execute the dynamic function
-    const func = new Function(
-      "supabase",
-      `
-      return (async () => {
-        try {
+    // If query doesn't include return statement, add it
+    let modifiedQuery = query;
+    if (!query.includes('return')) {
+      const match = query.match(/const\s*{\s*data\s*,\s*error\s*}\s*=\s*await/);
+      if (match) {
+        modifiedQuery = `
           ${query}
-        } catch (error) {
-          return { 
-            data: null, 
-            error: error.message || "Execution error" 
+          return { data, error };
+        `;
+      }
+    }
+
+    // Execute the query
+    const wrappedQuery = `
+      return (async () => {
+        let result = await (async () => {
+          ${modifiedQuery}
+        })();
+        
+        // For insert operations, if there's no error, it means the insert succeeded
+        if (${query.includes('.insert(')} && !result.error) {
+          return {
+            data: null,
+            error: {
+              message: "Insert succeeded when it should have been blocked by RLS",
+              code: "SECURITY_VIOLATION",
+              details: "Anonymous user was able to insert data"
+            }
           };
         }
+        return result;
       })();
-      `
+    `;
+
+    console.log("Wrapped query:", wrappedQuery);
+
+    const func = new Function(
+      "supabase",
+      wrappedQuery
     );
 
-    // Execute the function and handle the result
-    const result = await func(supabaseAuth);
-    
-    // Ensure we have a valid result object
-    const safeResult = {
+    const result = await func(supabase);
+    console.log("Query result:", result);
+
+    // Ensure result is an object with expected properties
+    const response = {
+      success: !result?.error,
       data: result?.data ?? null,
-      error: result?.error ?? null
+      error: result?.error ?? null,
+      status: result?.error ? 403 : 200,
+      statusText: result?.error ? "Forbidden" : (result?.data ? "OK" : "No Content"),
+      context: {
+        userRole: "anon",
+        operation: query.includes('select') ? 'SELECT' : 
+                  query.includes('insert') ? 'INSERT' : 
+                  query.includes('update') ? 'UPDATE' : 
+                  query.includes('delete') ? 'DELETE' : 'UNKNOWN',
+        timestamp: new Date().toISOString()
+      }
     };
 
-    return NextResponse.json(safeResult, { status: 200 });
+    return NextResponse.json(response, { status: 200 });
+
   } catch (error) {
-    console.error("API route error:", error);
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Unknown error",
-        data: null
-      },
-      { status: 500 }
-    );
+    console.error("API error:", error);
+    return NextResponse.json({ 
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+      status: 500,
+      statusText: "Internal Server Error",
+      context: {
+        userRole: "anon",
+        error: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      }
+    }, { status: 500 });
   }
 }

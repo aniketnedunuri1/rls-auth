@@ -19,6 +19,17 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
     const user = await getUser();
     if (!user) throw new Error("User not authenticated");
 
+    // Get existing tests to preserve IDs
+    const existingTests = await prisma.test.findMany({
+      where: { projectId },
+      select: { id: true, name: true }
+    });
+
+    // Create a map of test names to existing IDs
+    const existingTestMap = new Map(
+      existingTests.map(test => [test.name, test.id])
+    );
+
     // First, delete existing test results for this project
     await prisma.test.deleteMany({
       where: { projectId }
@@ -27,6 +38,7 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
     // Then create new test entries with category information
     const testData = categories.flatMap(category => 
       category.tests.map(test => ({
+        id: existingTestMap.get(test.name) || test.id, // Use existing ID if available
         projectId,
         categoryId: category.id,
         categoryName: category.name,
@@ -36,6 +48,7 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
         expected: test.expected ? (test.expected as any) : Prisma.JsonNull,
         result: test.result ? (test.result as any) : Prisma.JsonNull,
         role: 'ANONYMOUS' as const,
+        solution: test.solution // Preserve any existing solutions
       }))
     );
 
@@ -92,7 +105,8 @@ export async function loadTestResults(projectId: string) {
           description: test.description,
           query: test.query || '',
           expected: test.expected as ExpectedOutcome,
-          result: test.result as ExpectedOutcome
+          result: test.result as ExpectedOutcome,
+          solution: test.solution || undefined
         });
       }
     });

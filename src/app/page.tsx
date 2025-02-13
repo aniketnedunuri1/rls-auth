@@ -28,16 +28,16 @@ export default async function HomePage() {
         {/* CTA Buttons */}
         <div className="flex gap-4 justify-center mt-12">
           <Link 
-            href="/login" 
+            href="/register" 
             className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-lg font-medium transition-colors"
           >
             Get Started
           </Link>
           <Link 
-            href="/register" 
+            href="/login" 
             className="border border-gray-700 hover:border-orange-500 text-gray-300 hover:text-orange-500 px-8 py-3 rounded-lg font-medium transition-colors"
           >
-            Sign Up
+            Log In
           </Link>
         </div>
       </div>

@@ -223,8 +223,6 @@ export default function SchemaPage() {
 
     } catch (error) {
       console.error("Error generating tests:", error);
-      // Optionally show error to user
-      // toast.error("Failed to generate tests: " + error.message);
     } finally {
       setIsGenerating(false);
     }

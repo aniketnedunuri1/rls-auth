@@ -16,7 +16,6 @@ import { Info, ChevronDown, ChevronUp, Play, Loader2, FileText } from "lucide-re
 import ReactFlow, { Controls, Background, useNodesState, useEdgesState } from "reactflow";
 import "reactflow/dist/style.css";
 import { useDispatch, useSelector } from "react-redux";
-import { setSupabaseConfig } from "@/lib/schemaSlice";
 import { setSchema, setRLSPolicies, setAdditionalContext, setSupabaseUrl, setSupabaseAnonKey } from "@/lib/projectSlice";
 import { setTestCategories, updateTestCaseResult, updateTestQuery } from "@/lib/testsSlice";
 import type { RootState } from "@/lib/store";
@@ -26,11 +25,11 @@ import { updateProjectAction } from "@/lib/actions/project";
 import { useRouter } from "next/navigation";
 import { loadTestResults, saveTestResults } from "@/lib/actions/tests";
 
-interface ExpectedOutcome {
-  data?: any;
+interface TestExpectedOutcome {
+  data: any;
+  error: any;
   status?: number;
   statusText?: string;
-  error?: any;
 }
 
 interface TestCase {
@@ -38,7 +37,7 @@ interface TestCase {
   name: string
   description: string
   query?: string
-  expected?: ExpectedOutcome
+  expected?: TestExpectedOutcome
 }
 
 interface TestCategory {
@@ -61,13 +60,6 @@ interface TestResult {
     response: any;
 }
 
-interface ExpectedResult {
-    data: any;
-    error: any;
-    status?: number;
-    statusText?: string;
-}
-
 const databaseProviders: DatabaseProvider[] = [
   { id: "supabase", name: "Supabase", logo: "/logos/supabase.svg" },
   { id: "firebase", name: "Firebase", logo: "/logos/firebase.svg" },
@@ -82,7 +74,9 @@ export default function SchemaPage() {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [expandedTests, setExpandedTests] = useState<string[]>([])
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [runningTests, setRunningTests] = useState<Set<string>>(new Set());
+  const [runningSuites, setRunningSuites] = useState<Set<string>>(new Set());
+  const [isGenerating, setIsGenerating] = useState(false);
   const [activeProvider, setActiveProvider] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState("anon")
   const router = useRouter()
@@ -212,7 +206,11 @@ export default function SchemaPage() {
     }
   };
 
-  const compareResults = (expected: ExpectedResult, actual: any, query: string) => {
+  const compareResults = (expected: TestExpectedOutcome | undefined, actual: any, query: string): boolean => {
+    if (!expected) {
+        return false;
+    }
+
     console.log('Comparing results:', { expected, actual, query });
 
     // Reject invalid tests
@@ -300,6 +298,9 @@ export default function SchemaPage() {
         return;
     }
   
+    // Set loading state
+    setRunningTests(prev => new Set(prev).add(testId));
+  
     try {
         const queryToRun = editedQueries[testId] ?? userQuery;
 
@@ -327,9 +328,9 @@ export default function SchemaPage() {
                 ?.tests.find(t => t.id === testId);
 
             if (test) {
-                const passed = compareResults(test.expected, result, queryToRun);
+                const passed = compareResults(test.expected as TestExpectedOutcome, result, queryToRun);
                 
-                const testResult = {
+                const testResult: TestResult = {
                     status: passed ? "passed" : "failed",
                     data: result.data,
                     error: result.error,
@@ -359,6 +360,13 @@ export default function SchemaPage() {
         }
     } catch (error) {
         console.error("Error running test:", error);
+    } finally {
+        // Clear loading state
+        setRunningTests(prev => {
+            const next = new Set(prev);
+            next.delete(testId);
+            return next;
+        });
     }
   };
 
@@ -366,10 +374,22 @@ export default function SchemaPage() {
     const category = testCategories.find(cat => cat.id === categoryId);
     if (!category) return;
 
-    for (const test of category.tests) {
-      if (test.query) {
-        await runTest(test.id, test.query);
-      }
+    // Set loading state for the suite
+    setRunningSuites(prev => new Set(prev).add(categoryId));
+
+    try {
+        for (const test of category.tests) {
+            if (test.query) {
+                await runTest(test.id, test.query);
+            }
+        }
+    } finally {
+        // Clear loading state
+        setRunningSuites(prev => {
+            const next = new Set(prev);
+            next.delete(categoryId);
+            return next;
+        });
     }
   };
 
@@ -620,9 +640,22 @@ export default function SchemaPage() {
                             <h3 className="text-lg font-semibold">{category.name}</h3>
                             <p className="text-sm text-muted-foreground">{category.description}</p>
                           </div>
-                          <Button size="sm" onClick={() => runTestSuite(category.id)}>
-                            <Play className="h-4 w-4 mr-2" />
-                            Run Suite
+                          <Button 
+                            size="sm" 
+                            onClick={() => runTestSuite(category.id)}
+                            disabled={runningSuites.has(category.id)}
+                          >
+                            {runningSuites.has(category.id) ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Running Suite...
+                                </>
+                            ) : (
+                                <>
+                                    <Play className="h-4 w-4 mr-2" />
+                                    Run Suite
+                                </>
+                            )}
                           </Button>
                         </div>
 
@@ -722,28 +755,22 @@ export default function SchemaPage() {
                                 <Button 
                                   size="sm" 
                                   onClick={async () => {
-                                    // Get the current value from the textbox
                                     const currentQuery = editedQueries[test.id] ?? test.query;
-                                    
-                                    // Update both Redux and local state
-                                    dispatch(updateTestQuery({
-                                      categoryId: category.id,
-                                      testId: test.id,
-                                      query: currentQuery
-                                    }));
-
-                                    // Update local state to match
-                                    setEditedQueries(prev => ({
-                                      ...prev,
-                                      [test.id]: currentQuery
-                                    }));
-
-                                    // Run the test with the current value
                                     await runTest(test.id, currentQuery);
                                   }}
+                                  disabled={runningTests.has(test.id)}
                                 >
-                                  <Play className="h-3 w-3 mr-2" />
-                                  Run Test
+                                  {runningTests.has(test.id) ? (
+                                    <>
+                                      <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                                      Running...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="h-3 w-4 mr-2" />
+                                      Run Test
+                                    </>
+                                  )}
                                 </Button>
                               </CollapsibleContent>
                             </Collapsible>

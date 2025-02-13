@@ -6,12 +6,15 @@ import ReduxProvider from "@/components/redux-provider"; // ✅ Now Redux runs i
 import { store } from "@/lib/store"
 import type React from "react"
 
+
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "RLS Testing SaaS",
   description: "Automate RLS and database schema testing",
 }
+
+export const dynamic = 'force-dynamic'
 
 export default function RootLayout({
   children,

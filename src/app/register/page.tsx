@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/card";
 import Link from "next/link";
 import { registerAction } from "@/lib/actions/auth";
+import { Loader2 } from "lucide-react";
 
 export default function RegisterPage() {
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -32,6 +34,8 @@ export default function RegisterPage() {
       return;
     }
 
+    setIsLoading(true); // Start loading
+
     try {
       // Call the server action directly
       await registerAction(formData);
@@ -40,6 +44,8 @@ export default function RegisterPage() {
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsLoading(false); // Stop loading regardless of outcome
     }
   };
 
@@ -72,7 +78,16 @@ export default function RegisterPage() {
                 />
               </div>
               {error && <p className="text-red-500 text-sm">{error}</p>}
-              <Button type="submit">Register</Button>
+              <Button disabled={isLoading} type="submit">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  "Register"
+                )}
+              </Button>
             </div>
           </form>
         </CardContent>

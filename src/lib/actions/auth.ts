@@ -72,10 +72,21 @@ export async function registerAction(formData: FormData) {
   const password = formData.get("password") as string;
 
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({ 
+    email, 
+    password,
+    options: {
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`
+    }
+  });
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  // If we have a user but no session, it means email confirmation is required
+  if (data.user && !data.session) {
+    return { emailSent: true };
   }
 
   const user = data.user;
@@ -83,7 +94,7 @@ export async function registerAction(formData: FormData) {
     try {
       await prisma.user.upsert({
         where: { id: user.id },
-        update: {}, // no updates needed
+        update: {}, 
         create: {
           id: user.id,
           email: user.email || email,
@@ -95,7 +106,12 @@ export async function registerAction(formData: FormData) {
     }
   }
 
-  redirect("/dashboard");
+  // Only redirect if we have a session (no email confirmation required)
+  if (data.session) {
+    redirect("/dashboard");
+  }
+
+  return { emailSent: true };
 }
 
 export async function logoutAction() {

@@ -14,40 +14,62 @@ import {
 } from "@/components/ui/card";
 import Link from "next/link";
 import { registerAction } from "@/lib/actions/auth";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 
 export default function RegisterPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isEmailSent, setIsEmailSent] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError(""); // Clear previous errors
+    setError("");
+    setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const password = formData.get("password") as string;
 
-    // Client-side validation: Ensure password is at least 6 characters
     if (password.length < 6) {
       setError("Password must be at least 6 characters long.");
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true); // Start loading
-
     try {
-      // Call the server action directly
-      await registerAction(formData);
-      // If registerAction redirects (using next/navigation.redirect), you may not reach here.
-      // Otherwise, you can navigate programmatically:
-      router.push("/dashboard");
+      const result = await registerAction(formData);
+      if (result?.emailSent) {
+        setIsEmailSent(true);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setIsLoading(false); // Stop loading regardless of outcome
+      setIsLoading(false);
     }
   };
+
+  if (isEmailSent) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="w-[350px]">
+          <CardHeader>
+            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4">
+              <Mail className="h-6 w-6 text-orange-500" />
+            </div>
+            <CardTitle className="text-center">Check your email</CardTitle>
+            <CardDescription className="text-center">
+              We've sent you a verification link to complete your registration
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="flex justify-center">
+            <Button variant="outline" asChild>
+              <Link href="/login">Back to Login</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">

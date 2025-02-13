@@ -1,9 +1,5 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import Anthropic from "@anthropic-ai/sdk";
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +11,11 @@ export async function POST(request: Request) {
       projectDescription 
     } = await request.json();
 
-    const prompt = `
+    // Define the system instructions
+    const systemPrompt = "You are a database security expert specializing in Supabase Row Level Security. Your task is to generate a complete, working set of RLS policies in valid SQL that fixes all issues while maintaining existing functionality. Each policy must be a separate SQL statement with a single action in the FOR clause. For INSERT policies, do NOT include a USING clause; include only a WITH CHECK clause. Do NOT include any inline comments. Do NOT use the role \"anonymous\"; use \"anon\" for policies targeting unauthenticated access. Return ONLY the JSON object with no additional text, markdown, or formatting.";
+
+    // Compose the user message with project context and test details.
+    const userMessage = `
 As a database security expert, analyze these test results and generate a comprehensive RLS policy solution.
 
 Project Context:
@@ -63,43 +63,47 @@ Requirements:
 }
 
 Important: Return ONLY the JSON object with no additional text, markdown, or formatting.`;
-console.log(prompt);
-    const completion = await openai.chat.completions.create({
+
+    // Anthropic requires a "\n\nHuman:" turn after the optional system prompt.
+    const userContent = "\n\nHuman:" + userMessage;
+
+    // Initialize the Anthropic client with your API key.
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+    const msg = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 1500,
+      temperature: 0.7,
+      system: systemPrompt,
       messages: [
         {
-          role: "system",
-          content: `You are a database security expert specializing in Supabase Row Level Security.
-Your task is to generate a complete, working set of RLS policies in valid SQL that fixes all issues while maintaining existing functionality.
-Each policy must be a separate SQL statement with a single action in the FOR clause.
-For INSERT policies, do NOT include a USING clause; include only a WITH CHECK clause.
-Do NOT include any inline comments.
-DO NOT use the role "anonymous"; use "anon" for policies targeting unauthenticated access.
-Respond only with a valid JSON object containing 'description' and 'schema' fields.`
-        },
-        {
           role: "user",
-          content: prompt
+          content: [
+            {
+              type: "text",
+              text: userContent
+            }
+          ]
         }
-      ],
-      model: "gpt-4-0613",
-      temperature: 0.7
+      ]
     });
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
+    console.log("Anthropic API response:", msg);
+    
+    // Extract the completion text from msg.content array.
+    const completionText = msg.content && msg.content[0] ? msg.content[0].text : "";
+    if (!completionText || completionText.trim().length === 0) {
+      console.log("Completion content is empty:", msg);
       throw new Error("No solution generated");
     }
 
     let solution;
     try {
-      solution = JSON.parse(content);
-      
-      // Validate the solution format
+      solution = JSON.parse(completionText);
       if (!solution.description || !solution.schema) {
         throw new Error("Invalid solution format");
       }
     } catch (e) {
-      console.error("Error parsing solution:", e);
+      console.error("Error parsing solution:", e, "Content:", completionText);
       throw new Error("Failed to generate valid solution");
     }
 
@@ -110,11 +114,11 @@ Respond only with a valid JSON object containing 'description' and 'schema' fiel
     });
 
   } catch (error) {
-    console.error('Error generating comprehensive solution:', error);
+    console.error("Error generating comprehensive solution:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to generate solution'
+        error: error instanceof Error ? error.message : "Failed to generate solution"
       },
       { status: 500 }
     );

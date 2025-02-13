@@ -419,10 +419,17 @@ export default function SchemaPage() {
 
   useEffect(() => {
     async function loadSavedTests() {
-      if (!selectedProject?.id) return;
+      console.log('loadSavedTests called, selectedProject:', selectedProject);
+      
+      if (!selectedProject?.id) {
+        console.log('No selected project id, skipping load');
+        return;
+      }
       
       const result = await loadTestResults(selectedProject.id);
-      if (result.success && result.categories) {
+      console.log('loadTestResults result:', result);
+      
+      if (result.success && Array.isArray(result.categories)) {
         dispatch(setTestCategories(result.categories));
       }
     }

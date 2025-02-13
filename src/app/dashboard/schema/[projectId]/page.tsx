@@ -1,7 +1,7 @@
 // src/pages/SchemaPage.tsx
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { debounce } from "lodash"
@@ -38,6 +38,7 @@ interface TestCase {
   description: string
   query?: string
   expected?: TestExpectedOutcome
+  role: 'ANONYMOUS' | 'AUTHENTICATED'
 }
 
 interface TestCategory {
@@ -78,7 +79,7 @@ export default function SchemaPage() {
   const [runningSuites, setRunningSuites] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeProvider, setActiveProvider] = useState<string | null>(null)
-  const [selectedRole, setSelectedRole] = useState("anon")
+  const [selectedRole, setSelectedRole] = useState<'ANONYMOUS' | 'AUTHENTICATED'>('ANONYMOUS');
   const router = useRouter()
   const [editedQueries, setEditedQueries] = useState<Record<string, string>>({});
 
@@ -174,11 +175,14 @@ export default function SchemaPage() {
 
     setIsGenerating(true);
     try {
-      const response = await fetch("/api/test-runner", {
+      // Generate tests only for the selected role
+      const endpoint = selectedRole === 'ANONYMOUS' 
+        ? "/api/run-test/anon"
+        : "/api/run-test/authenticated-anon";
+
+      const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           schema: selectedProject.dbSchema,
           rlsPolicies: selectedProject.rlsSchema,
@@ -187,20 +191,40 @@ export default function SchemaPage() {
       });
 
       if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+        throw new Error(`Request failed`);
       }
 
       const data = await response.json();
-      if (data.result && data.result.test_categories) {
-        dispatch(setTestCategories(data.result.test_categories));
-        // Save the generated tests
-        await saveTestResults({
-          projectId: selectedProject.id,
-          categories: data.result.test_categories
-        });
-      }
+      const newCategories = data.result?.test_categories || [];
+
+      // Preserve existing tests for the other role
+      const existingOtherRoleTests = testCategories
+        .map(category => ({
+          ...category,
+          tests: category.tests.filter(test => 
+            test.role !== selectedRole
+          )
+        }))
+        .filter(category => category.tests.length > 0);
+
+      // Combine new tests with existing tests from other role
+      const combinedCategories = [
+        ...existingOtherRoleTests,
+        ...newCategories
+      ];
+
+      dispatch(setTestCategories(combinedCategories));
+
+      // Save the combined tests
+      await saveTestResults({
+        projectId: selectedProject.id,
+        categories: combinedCategories
+      });
+
     } catch (error) {
-      console.error("Error calling /api/test-runner:", error);
+      console.error("Error generating tests:", error);
+      // Optionally show error to user
+      // toast.error("Failed to generate tests: " + error.message);
     } finally {
       setIsGenerating(false);
     }
@@ -300,23 +324,27 @@ export default function SchemaPage() {
   
     // Set loading state
     setRunningTests(prev => new Set(prev).add(testId));
-  
-    try {
-        const queryToRun = editedQueries[testId] ?? userQuery;
 
-        const response = await fetch("/api/run-test", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                query: queryToRun,
-                url: selectedProject.supabaseUrl,
-                anonKey: selectedProject.supabaseAnonKey,
-                role: selectedRole
-            }),
-        });
+    try {
+      const queryToRun = editedQueries[testId] ?? userQuery;
+      
+      // Use role-specific endpoint
+      const endpoint = selectedRole === 'ANONYMOUS'
+        ? "/api/run-test/anon"
+        : "/api/run-test/authenticated-anon";
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: queryToRun,
+          url: selectedProject.supabaseUrl,
+          anonKey: selectedProject.supabaseAnonKey
+        }),
+      });
   
-        const result = await response.json();
-        console.log('Test result:', result);
+      const result = await response.json();
+      console.log('Test result:', result);
 
         const categoryId = testCategories.find((category) =>
             category.tests.some((test) => test.id === testId)
@@ -471,6 +499,16 @@ export default function SchemaPage() {
       setEditedQueries(initialQueries);
     }
   }, [testCategories]);
+
+  // Filter tests based on selected role
+  const filteredTestCategories = useMemo(() => {
+    return testCategories.map(category => ({
+      ...category,
+      tests: category.tests.filter(test => 
+        test.role === selectedRole
+      )
+    })).filter(category => category.tests.length > 0);
+  }, [testCategories, selectedRole]);
 
   return (
     <div className="h-screen flex">
@@ -632,12 +670,21 @@ export default function SchemaPage() {
 
               <ScrollArea className="h-[calc(100vh-200px)]">
                 <div className="space-y-4 pr-4">
-                  {testCategories.map((category) => (
+                  {filteredTestCategories.map((category) => (
                     <Card key={category.id}>
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-4">
                           <div>
-                            <h3 className="text-lg font-semibold">{category.name}</h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-lg font-semibold">{category.name}</h3>
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                selectedRole === 'ANONYMOUS' 
+                                  ? 'bg-gray-100 text-gray-700' 
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {selectedRole === 'ANONYMOUS' ? 'Anon' : 'Auth'}
+                              </span>
+                            </div>
                             <p className="text-sm text-muted-foreground">{category.description}</p>
                           </div>
                           <Button 

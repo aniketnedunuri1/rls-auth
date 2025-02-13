@@ -43,43 +43,45 @@ Query: ${test.query}
 
 Requirements:
 1. Generate a complete set of RLS policies that:
-   - Fixes all failed tests
-   - Maintains functionality of passed tests
-   - Follows security best practices
-   - Uses proper Supabase RLS syntax
+   - Fix all failed tests
+   - Maintain functionality of all passed tests
+   - Follow security best practices
+   - Use proper Supabase RLS syntax
 
 2. The solution must:
-   - Include ENABLE ROW LEVEL SECURITY statements where needed
-   - Provide policies for all necessary operations (SELECT, INSERT, UPDATE, DELETE)
-   - Include comments explaining each policy's purpose
-   - Handle both authenticated and anonymous access appropriately
-   - You must specify insert policies with the with check clause. The with check expression ensures that any new row data adheres to the policy constraints.
-   - Ensure the sql you generate for the rls is fully ready to be copy pasted into a supabase sql editor.
-   - The final rls policies must fully solve all the failed tests and maintain the functionality of all the passed tests. The most imporatant part is to solve the failed tests.
-   - All policies must be supaase accepted, meaning,only WITH CHECK expression allowed for INSERT, and FOR clause in a policy only allows a single action at a time, meaning you must split these up into two seperate queries. (example, do not do this: CREATE POLICY "deny_anonymous_update_delete_creators" ON public.creators FOR UPDATE, DELETE TO anonymous USING (false); )(example: do not do this: CREATE POLICY "creators_insert_messages" ON public.chat_messages FOR INSERT TO authenticated USING (true) WITH CHECK (creatorId IN (SELECT id FROM creators WHERE authId = auth.uid())); )
+   - Include ENABLE ROW LEVEL SECURITY statements for all tables that are needed. Ensure you generate an entire RLS suite that satisfies the requirements of solving the failed tests and maintaining the passed tests, and fixing the rls schema.
+   - Provide policies for SELECT, INSERT, UPDATE, and DELETE operations.
+   - For INSERT policies, do NOT include a USING clause; include only a WITH CHECK clause.
+   - Ensure that for any policy, the FOR clause only mentions a single operation; if the same table requires policies for multiple operations (e.g., UPDATE and DELETE), generate separate SQL statements for each.
+   - Do NOT include any inline comments.
+   - DO NOT use the role "anonymous"; use "anon" instead for unauthenticated access.
 
-3. Format the response as a JSON object:
+3. Format the response as a JSON object exactly as follows:
 {
-  "description": "Detailed explanation of all changes and their impact",
-  "schema": "Complete SQL statements for all RLS policies. No markdown, only sql which satisfies the requirements of solving the failed tests and maintaining the passed tests, and fixing the rls schema. "
+  "description": "Detailed explanation of all changes and their impact.",
+  "schema": "Complete SQL statements for all RLS policies."
 }
 
-Important: Return ONLY a valid JSON object with no additional text or formatting, and return a RLS policy set that satisfies the requirements of solving the failed tests and maintaining the passed tests, and fixing the rls schema. In addition, you must comply to this: only WITH CHECK expression allowed for INSERT`;
-
+Important: Return ONLY the JSON object with no additional text, markdown, or formatting.`;
+console.log(prompt);
     const completion = await openai.chat.completions.create({
       messages: [
         {
           role: "system",
           content: `You are a database security expert specializing in Supabase Row Level Security.
-Your task is to generate a complete, working RLS policy set that fixes all security issues while maintaining existing functionality.
-Respond only with valid JSON containing 'description' and 'schema' fields.`
+Your task is to generate a complete, working set of RLS policies in valid SQL that fixes all issues while maintaining existing functionality.
+Each policy must be a separate SQL statement with a single action in the FOR clause.
+For INSERT policies, do NOT include a USING clause; include only a WITH CHECK clause.
+Do NOT include any inline comments.
+DO NOT use the role "anonymous"; use "anon" for policies targeting unauthenticated access.
+Respond only with a valid JSON object containing 'description' and 'schema' fields.`
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      model: "gpt-4o-mini-2024-07-18",
+      model: "gpt-4-0613",
       temperature: 0.7
     });
 
@@ -92,7 +94,7 @@ Respond only with valid JSON containing 'description' and 'schema' fields.`
     try {
       solution = JSON.parse(content);
       
-      // Validate solution format
+      // Validate the solution format
       if (!solution.description || !solution.schema) {
         throw new Error("Invalid solution format");
       }
@@ -103,8 +105,8 @@ Respond only with valid JSON containing 'description' and 'schema' fields.`
 
     return NextResponse.json({
       success: true,
-      solution: solution.schema,  // Return just the SQL schema for updating the database
-      description: solution.description  // Optional: Frontend can display this to explain changes
+      solution: solution.schema,
+      description: solution.description
     });
 
   } catch (error) {

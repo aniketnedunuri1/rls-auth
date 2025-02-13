@@ -33,7 +33,7 @@ export default function TestsPage() {
     setError(null)
 
     try {
-      const response = await fetch("/api/test-runner", {
+      const response = await fetch("/api/generate-tests/authenticated", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -180,7 +180,7 @@ export default function SchemaPage() {
 
     setIsGenerating(true);
     try {
-      const response = await fetch("/api/test-runner", {
+      const response = await fetch("/api/generate-tests/authenticated", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -206,7 +206,7 @@ export default function SchemaPage() {
         });
       }
     } catch (error) {
-      console.error("Error calling /api/test-runner:", error);
+      console.error("Error calling /api/generate-tests-authenticated:", error);
     } finally {
       setIsGenerating(false);
     }
@@ -303,7 +303,7 @@ export default function SchemaPage() {
     try {
         const queryToRun = editedQueries[testId] ?? userQuery;
 
-        const response = await fetch("/api/run-test", {
+        const response = await fetch("/api/run-test/authenticated", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

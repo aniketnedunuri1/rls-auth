@@ -1,6 +1,7 @@
 // /app/page.tsx
 import { createServerSupabaseClient } from "@/lib/supabase-server-client";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 export default async function HomePage() {
   const supabase = await createServerSupabaseClient();
@@ -11,11 +12,35 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-background">
-      <h1 className="text-3xl font-bold mb-4">Welcome to Our App</h1>
-      <p className="mb-8">
-        Please <a href="/login" className="text-blue-500 underline">Login</a> or <a href="/register" className="text-blue-500 underline">Register</a> to continue.
-      </p>
+    <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="text-center space-y-8">
+        {/* Logo */}
+        <h1 className="text-7xl font-bold tracking-tighter">
+          <span className="text-white">clamp</span>
+          <span className="text-orange-500">.</span>
+        </h1>
+
+        {/* Tagline */}
+        <p className="text-gray-400 text-xl max-w-md mx-auto">
+          Automated RLS policy testing and validation
+        </p>
+
+        {/* CTA Buttons */}
+        <div className="flex gap-4 justify-center mt-12">
+          <Link 
+            href="/login" 
+            className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-lg font-medium transition-colors"
+          >
+            Get Started
+          </Link>
+          <Link 
+            href="/register" 
+            className="border border-gray-700 hover:border-orange-500 text-gray-300 hover:text-orange-500 px-8 py-3 rounded-lg font-medium transition-colors"
+          >
+            Sign Up
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

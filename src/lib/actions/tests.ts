@@ -1,17 +1,13 @@
 "use server";
 
 import { getUser } from './auth';
-import { TestCategory, TestCase, ExpectedOutcome } from '@/lib/testsSlice';
+import { TestCategory, TestCase, ExpectedOutcome, TestResult } from '@/lib/testsSlice';
 import { prisma } from '../prisma';
-import { Prisma, Test } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 interface SaveTestResultsParams {
   projectId: string;
   categories: TestCategory[];
-}
-
-interface TestWithSolution extends TestCase {
-  solution?: string;
 }
 
 export async function saveTestResults({ projectId, categories }: SaveTestResultsParams) {
@@ -38,7 +34,7 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
     // Then create new test entries with category information
     const testData = categories.flatMap(category => 
       category.tests.map(test => ({
-        id: existingTestMap.get(test.name) || test.id, // Use existing ID if available
+        id: existingTestMap.get(test.name) || test.id,
         projectId,
         categoryId: category.id,
         categoryName: category.name,
@@ -46,9 +42,9 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
         description: test.description,
         query: test.query || '',
         expected: test.expected ? (test.expected as any) : Prisma.JsonNull,
-        result: test.result ? (test.result as any) : Prisma.JsonNull,
-        role: 'ANONYMOUS' as const,
-        solution: test.solution // Preserve any existing solutions
+        result: test.result ? JSON.parse(JSON.stringify(test.result)) : Prisma.JsonNull,
+        role: test.role || 'ANONYMOUS',
+        solution: test.solution || null
       }))
     );
 
@@ -63,27 +59,63 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
   }
 }
 
+// Add type guard to check if a value is a TestResult
+function isTestResult(value: any): value is TestResult {
+  return (
+    value &&
+    typeof value === 'object' &&
+    'status' in value &&
+    'data' in value &&
+    'error' in value &&
+    'response' in value &&
+    (value.status === 'passed' || value.status === 'failed')
+  );
+}
+
 export async function loadTestResults(projectId: string) {
+  console.log('loadTestResults called with projectId:', projectId);
+  
   try {
-    const user = await getUser();
-    if (!user) throw new Error("User not authenticated");
+    if (!projectId) {
+      console.log('No projectId provided, returning empty categories');
+      return {
+        success: true,
+        categories: []
+      };
+    }
 
-    // We create a new type that ensures TypeScript knows our Test has category fields
-    type TestWithCategory = Test & {
-      categoryId: string;
-      categoryName: string;
-    };
+    // First check if project exists
+    const project = await prisma.project.findUnique({
+      where: { id: projectId }
+    });
+    console.log('Project lookup result:', project);
 
-    // Then we can use type assertion to tell TypeScript that our query results
-    // will include these category fields
+    if (!project) {
+      console.log('No project found for id:', projectId);
+      return {
+        success: true,
+        categories: []
+      };
+    }
+
+    // Get all tests for this project
     const tests = await prisma.test.findMany({
       where: { projectId }
-    }) as TestWithCategory[];
+    });
+    console.log('Found tests:', tests?.length || 0);
+
+    if (!tests || tests.length === 0) {
+      console.log('No tests found for project:', projectId);
+      return {
+        success: true,
+        categories: []
+      };
+    }
 
     // Group tests by category
     const categoriesMap = new Map<string, TestCategory>();
     
-    tests.forEach(test => {
+    tests.forEach((test: any) => {
       const categoryId = test.categoryId;
       const categoryName = test.categoryName;
       
@@ -98,26 +130,45 @@ export async function loadTestResults(projectId: string) {
       
       const category = categoriesMap.get(categoryId);
       if (category) {
+        // Convert the result safely
+        let testResult: TestResult | undefined;
+        if (test.result && isTestResult(test.result)) {
+          testResult = test.result;
+        }
+
         category.tests.push({
           id: test.id,
           name: test.name,
-          categoryId: test.categoryId,
           description: test.description,
           query: test.query || '',
           expected: test.expected as ExpectedOutcome,
-          result: test.result as ExpectedOutcome,
-          solution: test.solution || undefined
+          result: testResult,
+          categoryId: test.categoryId,
+          solution: test.solution || undefined,
+          role: (test.role as 'ANONYMOUS' | 'AUTHENTICATED') || 'ANONYMOUS'
         });
       }
     });
 
+    const finalCategories = Array.from(categoriesMap.values());
+    console.log('Returning categories:', finalCategories.length);
+    
     return { 
       success: true, 
-      categories: Array.from(categoriesMap.values())
+      categories: finalCategories
     };
   } catch (error) {
-    console.error('Error loading test results:', error);
-    return { success: false, error: (error as Error).message };
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const errorStack = error instanceof Error ? error.stack : 'No stack trace available';
+    
+    console.error('Error in loadTestResults:', errorMessage);
+    console.error('Error stack:', errorStack);
+    
+    return { 
+      success: false, 
+      error: errorMessage,
+      categories: [] 
+    };
   }
 }
 

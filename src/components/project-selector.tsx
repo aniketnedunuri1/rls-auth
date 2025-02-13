@@ -41,6 +41,11 @@ export default function ProjectSelector() {
     await updateSelectedProject(project.id);
   };
 
+  const handleNewProject = () => {
+    setDropdownOpen(false);
+    router.push('/dashboard'); // Redirect to dashboard for new project creation
+  };
+
   return (
     <div className="relative w-48"> {/* Reduced width */}
       <Button
@@ -74,7 +79,10 @@ export default function ProjectSelector() {
           </ul>
 
           {/* New Project Button */}
-          <button className="w-full text-left px-3 py-1 text-xs text-[#aaa] hover:bg-[#292929]">
+          <button 
+            onClick={handleNewProject}
+            className="w-full text-left px-3 py-1 text-xs text-[#aaa] hover:bg-[#292929]"
+          >
             + New project
           </button>
         </div>

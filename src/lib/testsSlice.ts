@@ -12,12 +12,13 @@ export interface ExpectedOutcome {
 export interface TestCase {
   id: string;
   name: string;
-  categoryId: string;
   description: string;
-  query: string;
-  expected: ExpectedOutcome;
-  result?: ExpectedOutcome;
+  query?: string;
+  expected?: ExpectedOutcome;
+  categoryId: string;
+  result?: TestResult;
   solution?: string;
+  role?: 'ANONYMOUS' | 'AUTHENTICATED';
 }
 
 export interface TestCategory {
@@ -31,11 +32,11 @@ interface TestsState {
   categories: TestCategory[];
 }
 
-interface TestResult {
+export interface TestResult {
   status: 'passed' | 'failed';
-  error?: any;
-  data?: any;
-  statusText?: string;
+  data: any;
+  error: any;
+  response: any;
 }
 
 interface UpdateTestCaseResultPayload {
@@ -68,9 +69,11 @@ export const testsSlice = createSlice({
         const testCase = category.tests.find((test) => test.id === testCaseId);
         if (testCase) {
           testCase.result = {
-            ...result,
-            status: result.status === 'passed' ? 'passed' : 'failed'
-          } as ExpectedOutcome & { status: "pending" | "passed" | "failed" | "error" };
+            status: result.status === 'passed' ? 'passed' : 'failed',
+            data: result.data,
+            error: result.error,
+            response: result.response
+          };
         }
       }
     },
@@ -112,7 +115,7 @@ export const {
   updateTestCaseResult, 
   clearTestResults,
   updateTestSolution,
-  updateTestQuery
+  updateTestQuery,
 } = testsSlice.actions;
 
 export default testsSlice.reducer;

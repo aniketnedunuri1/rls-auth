@@ -81,7 +81,7 @@ Respond only with a valid JSON object containing 'description' and 'schema' fiel
           content: prompt
         }
       ],
-      model: "gpt-4-0613",
+      model: "o3-mini-2025-01-31",
       temperature: 0.7
     });
 

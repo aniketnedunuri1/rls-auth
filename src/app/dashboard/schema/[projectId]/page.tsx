@@ -203,12 +203,16 @@ export default function SchemaPage() {
         ...category,
         tests: category.tests.map((test: any) => ({
           ...test,
-          role: selectedRole  // Add the selected role to each test
+          role: selectedRole
         }))
       }));
 
-      // Preserve existing tests for the other role
-      const existingOtherRoleTests = testCategories
+      // Load existing tests from database to ensure we have the latest state
+      const existingTestsResult = await loadTestResults(selectedProject.id);
+      const existingCategories = existingTestsResult.success ? existingTestsResult.categories : [];
+
+      // Filter out tests with current role from existing categories
+      const existingOtherRoleTests = existingCategories
         .map(category => ({
           ...category,
           tests: category.tests.filter(test => 
@@ -223,12 +227,13 @@ export default function SchemaPage() {
         ...categoriesWithRole
       ];
 
+      // Update Redux with combined categories
       dispatch(setTestCategories(combinedCategories));
 
-      // Save the combined tests
+      // Save ALL categories to database
       await saveTestResults({
         projectId: selectedProject.id,
-        categories: categoriesWithRole  // Save only the newly generated tests
+        categories: combinedCategories  // Save all tests, not just new ones
       });
 
     } catch (error) {
@@ -504,19 +509,22 @@ export default function SchemaPage() {
 
   useEffect(() => {
     async function loadSavedTests() {
-      console.log('loadSavedTests called, selectedProject:', selectedProject);
-      
-      if (!selectedProject?.id) {
-        console.log('No selected project id, skipping load');
-        return;
-      }
-      
-      const result = await loadTestResults(selectedProject.id);
-      console.log('loadTestResults result:', result);
-      
-      if (result.success && Array.isArray(result.categories)) {
-        dispatch(setTestCategories(result.categories));
-      }
+        if (!selectedProject?.id) {
+            // Clear tests when no project is selected
+            dispatch(setTestCategories([]));
+            return;
+        }
+        
+        const result = await loadTestResults(selectedProject.id);
+        
+        if (result.success) {
+            // Ensure we're setting an empty array if no categories
+            dispatch(setTestCategories(result.categories || []));
+        } else {
+            // Clear tests on error
+            dispatch(setTestCategories([]));
+            console.error('Failed to load test results:', result.error);
+        }
     }
     
     loadSavedTests();

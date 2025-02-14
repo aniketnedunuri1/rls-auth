@@ -15,69 +15,46 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
     const user = await getUser();
     if (!user) throw new Error("User not authenticated");
 
-    // Get existing tests to preserve IDs and tests from other role
-    const existingTests = await prisma.test.findMany({
-      where: { projectId },
-    });
-
-    // Create a map of test names to existing IDs
-    const existingTestMap = new Map(
-      existingTests.map(test => [test.name, test.id])
-    );
-
-    // Get the role from the first test in categories (they should all be the same role)
-    const currentRole = categories[0]?.tests[0]?.role;
-    if (!currentRole) {
-      throw new Error("No role specified in tests");
-    }
-
-    console.log('Saving tests for role:', currentRole);
-
-    // Delete only the tests for the current role, preserving other role's tests
-    await prisma.test.deleteMany({
-      where: { 
-        projectId,
-        role: currentRole
+    // Process each test individually
+    for (const category of categories) {
+      for (const test of category.tests) {
+        // Update or create the test
+        await prisma.test.upsert({
+          where: {
+            id: test.id,
+          },
+          create: {
+            id: test.id,
+            projectId,
+            categoryId: category.id,
+            categoryName: category.name,
+            name: test.name,
+            description: test.description,
+            query: test.query || '',
+            expected: test.expected ? (test.expected as any) : Prisma.JsonNull,
+            result: test.result ? JSON.parse(JSON.stringify(test.result)) : Prisma.JsonNull,
+            role: test.role || 'ANONYMOUS',
+            solution: test.solution || null
+          },
+          update: {
+            categoryId: category.id,
+            categoryName: category.name,
+            name: test.name,
+            description: test.description,
+            query: test.query || '',
+            expected: test.expected ? (test.expected as any) : Prisma.JsonNull,
+            result: test.result ? JSON.parse(JSON.stringify(test.result)) : Prisma.JsonNull,
+            role: test.role || 'ANONYMOUS',
+            solution: test.solution || null
+          },
+        });
       }
-    });
-
-    // Then create new test entries with category information
-    const testData = categories.flatMap(category => 
-      category.tests.map(test => ({
-        id: existingTestMap.get(test.name) || test.id,
-        projectId,
-        categoryId: category.id,
-        categoryName: category.name,
-        name: test.name,
-        description: test.description,
-        query: test.query || '',
-        expected: test.expected ? (test.expected as any) : Prisma.JsonNull,
-        result: test.result ? JSON.parse(JSON.stringify(test.result)) : Prisma.JsonNull,
-        role: test.role || 'ANONYMOUS',
-        solution: test.solution || null
-      }))
-    );
-
-    console.log('Saving tests with data:', testData.map(t => ({ 
-      name: t.name, 
-      role: t.role 
-    })));
-
-    await prisma.test.createMany({
-      data: testData
-    });
-
-    // Verify the save
-    const savedTests = await prisma.test.findMany({
-      where: { projectId },
-      select: { name: true, role: true }
-    });
-    console.log('Tests after save:', savedTests);
+    }
 
     return { success: true };
   } catch (error) {
     console.error('Error saving test results:', error);
-    return { success: false, error: (error as Error).message };
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 

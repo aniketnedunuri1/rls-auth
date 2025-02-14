@@ -15,10 +15,9 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
     const user = await getUser();
     if (!user) throw new Error("User not authenticated");
 
-    // Get existing tests to preserve IDs
+    // Get existing tests to preserve IDs and tests from other role
     const existingTests = await prisma.test.findMany({
       where: { projectId },
-      select: { id: true, name: true }
     });
 
     // Create a map of test names to existing IDs
@@ -26,9 +25,20 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
       existingTests.map(test => [test.name, test.id])
     );
 
-    // First, delete existing test results for this project
+    // Get the role from the first test in categories (they should all be the same role)
+    const currentRole = categories[0]?.tests[0]?.role;
+    if (!currentRole) {
+      throw new Error("No role specified in tests");
+    }
+
+    console.log('Saving tests for role:', currentRole);
+
+    // Delete only the tests for the current role, preserving other role's tests
     await prisma.test.deleteMany({
-      where: { projectId }
+      where: { 
+        projectId,
+        role: currentRole
+      }
     });
 
     // Then create new test entries with category information
@@ -48,9 +58,21 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
       }))
     );
 
+    console.log('Saving tests with data:', testData.map(t => ({ 
+      name: t.name, 
+      role: t.role 
+    })));
+
     await prisma.test.createMany({
       data: testData
     });
+
+    // Verify the save
+    const savedTests = await prisma.test.findMany({
+      where: { projectId },
+      select: { name: true, role: true }
+    });
+    console.log('Tests after save:', savedTests);
 
     return { success: true };
   } catch (error) {
@@ -84,25 +106,12 @@ export async function loadTestResults(projectId: string) {
       };
     }
 
-    // First check if project exists
-    const project = await prisma.project.findUnique({
-      where: { id: projectId }
-    });
-    console.log('Project lookup result:', project);
-
-    if (!project) {
-      console.log('No project found for id:', projectId);
-      return {
-        success: true,
-        categories: []
-      };
-    }
-
     // Get all tests for this project
     const tests = await prisma.test.findMany({
       where: { projectId }
     });
     console.log('Found tests:', tests?.length || 0);
+    console.log('Test roles:', tests.map(t => ({ name: t.name, role: t.role })));
 
     if (!tests || tests.length === 0) {
       console.log('No tests found for project:', projectId);
@@ -136,6 +145,10 @@ export async function loadTestResults(projectId: string) {
           testResult = test.result;
         }
 
+        // Ensure role is properly typed and defaulted
+        const role = test.role === 'AUTHENTICATED' ? 'AUTHENTICATED' : 'ANONYMOUS';
+        console.log(`Processing test ${test.name} with role: ${role}`);
+
         category.tests.push({
           id: test.id,
           name: test.name,
@@ -145,28 +158,27 @@ export async function loadTestResults(projectId: string) {
           result: testResult,
           categoryId: test.categoryId,
           solution: test.solution || undefined,
-          role: (test.role as 'ANONYMOUS' | 'AUTHENTICATED') || 'ANONYMOUS'
+          role: role  // Use the properly typed role
         });
       }
     });
 
     const finalCategories = Array.from(categoriesMap.values());
     console.log('Returning categories:', finalCategories.length);
+    console.log('Category tests with roles:', finalCategories.map(cat => ({
+      category: cat.name,
+      tests: cat.tests.map(t => ({ name: t.name, role: t.role }))
+    })));
     
     return { 
       success: true, 
       categories: finalCategories
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    const errorStack = error instanceof Error ? error.stack : 'No stack trace available';
-    
-    console.error('Error in loadTestResults:', errorMessage);
-    console.error('Error stack:', errorStack);
-    
+    console.error('Error in loadTestResults:', error);
     return { 
       success: false, 
-      error: errorMessage,
+      error: error instanceof Error ? error.message : 'Unknown error',
       categories: [] 
     };
   }

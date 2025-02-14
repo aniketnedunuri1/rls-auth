@@ -192,17 +192,20 @@ export default function SchemaPage() {
         }),
       });
 
-      console.log("RESPONS failedE", response);
       if (!response.ok) {
-       
         throw new Error(`Request failed`);
-        
       }
 
-      
       const data = await response.json();
       
-      const newCategories = data.result?.test_categories || [];
+      // Add role to each test in the generated categories
+      const categoriesWithRole = data.result?.test_categories.map((category: any) => ({
+        ...category,
+        tests: category.tests.map((test: any) => ({
+          ...test,
+          role: selectedRole  // Add the selected role to each test
+        }))
+      }));
 
       // Preserve existing tests for the other role
       const existingOtherRoleTests = testCategories
@@ -217,7 +220,7 @@ export default function SchemaPage() {
       // Combine new tests with existing tests from other role
       const combinedCategories = [
         ...existingOtherRoleTests,
-        ...newCategories
+        ...categoriesWithRole
       ];
 
       dispatch(setTestCategories(combinedCategories));
@@ -225,7 +228,7 @@ export default function SchemaPage() {
       // Save the combined tests
       await saveTestResults({
         projectId: selectedProject.id,
-        categories: combinedCategories
+        categories: categoriesWithRole  // Save only the newly generated tests
       });
 
     } catch (error) {

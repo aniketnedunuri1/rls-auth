@@ -8,7 +8,7 @@ const publicPaths = ['/', '/login', '/register']
 export async function middleware(request: NextRequest) {
   // Check if the path is public
   const isPublicPath = publicPaths.some(path => 
-    request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith('/api/')
+    request.nextUrl.pathname === path
   )
 
   // Create Supabase client
@@ -16,6 +16,17 @@ export async function middleware(request: NextRequest) {
   
   // Check if user is authenticated
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Handle API routes - return 401 for unauthenticated users
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    return NextResponse.next()
+  }
 
   // If the path is public and user is logged in, redirect to dashboard
   if (isPublicPath && user) {
@@ -42,4 +53,4 @@ export const config = {
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-} 
+}

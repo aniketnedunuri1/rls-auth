@@ -217,8 +217,12 @@ The JSON output must follow this structure:
 }
 
 export async function POST(req: Request): Promise<Response> {
+  console.log("intest");
   try {
     const { schema, rlsPolicies, additionalContext } = await req.json();
+    console.log("SCHEMA", schema);
+    console.log("RLS POLICIES", rlsPolicies);
+    console.log("ADDITIONAL CONTEXT", additionalContext); 
 
     if (!schema || !rlsPolicies) {
       return new Response(

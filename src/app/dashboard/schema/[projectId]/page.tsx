@@ -182,7 +182,7 @@ export default function SchemaPage() {
         : "/api/generate-query/authenticated-anon";
 
       console.log('Sending request to:', endpoint);
-      const response = await fetch("/api/generate-query/authenticated-anon", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -192,11 +192,16 @@ export default function SchemaPage() {
         }),
       });
 
+      console.log("RESPONS failedE", response);
       if (!response.ok) {
+       
         throw new Error(`Request failed`);
+        
       }
 
+      
       const data = await response.json();
+      
       const newCategories = data.result?.test_categories || [];
 
       // Preserve existing tests for the other role
@@ -315,10 +320,16 @@ export default function SchemaPage() {
   };
 
   const runTest = async (testId: string, userQuery: string | undefined) => {
-    if (!selectedProject?.id || !userQuery) return;
+    if (!selectedProject?.id || !userQuery) {
+        console.log('Missing required data:', { projectId: selectedProject?.id, userQuery });
+        return;
+    }
 
     if (!selectedProject.supabaseUrl || !selectedProject.supabaseAnonKey) {
-        console.error("Missing Supabase configuration");
+        console.log('Missing Supabase configuration:', {
+            hasUrl: !!selectedProject.supabaseUrl,
+            hasKey: !!selectedProject.supabaseAnonKey
+        });
         return;
     }
   
@@ -326,25 +337,48 @@ export default function SchemaPage() {
     setRunningTests(prev => new Set(prev).add(testId));
 
     try {
-      const queryToRun = editedQueries[testId] ?? userQuery;
-      
-      // Use role-specific endpoint
-      const endpoint = selectedRole === 'ANONYMOUS'
-        ? "/api/run-test/anon"
-        : "/api/run-test/authenticated-anon";
+        const queryToRun = editedQueries[testId] ?? userQuery;
+        
+        // Use role-specific endpoint
+        const endpoint = selectedRole === 'ANONYMOUS'
+            ? "/api/run-test/anon"
+            : "/api/run-test/authenticated-anon";
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: queryToRun,
-          url: selectedProject.supabaseUrl,
-          anonKey: selectedProject.supabaseAnonKey
-        }),
-      });
+        console.log('Sending request to:', endpoint, {
+            query: queryToRun,
+            url: selectedProject.supabaseUrl,
+            hasAnonKey: !!selectedProject.supabaseAnonKey
+        });
+
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                // Add cache control headers
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache"
+            },
+            // Disable caching
+            cache: 'no-store',
+            body: JSON.stringify({
+                query: queryToRun,
+                url: selectedProject.supabaseUrl,
+                anonKey: selectedProject.supabaseAnonKey
+            }),
+        });
+
+        if (!response.ok) {
+            console.error('API response not ok:', {
+                status: response.status,
+                statusText: response.statusText
+            });
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        }
   
-      const result = await response.json();
-      console.log('Test result:', result);
+        const result = await response.json();
+        console.log('Test result:', result);
 
         const categoryId = testCategories.find((category) =>
             category.tests.some((test) => test.id === testId)

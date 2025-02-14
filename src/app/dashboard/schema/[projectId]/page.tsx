@@ -176,11 +176,13 @@ export default function SchemaPage() {
     setIsGenerating(true);
     try {
       // Generate tests only for the selected role
+      console.log('Generating tests for role:', selectedRole);
       const endpoint = selectedRole === 'ANONYMOUS' 
-        ? "/api/run-test/anon"
-        : "/api/run-test/authenticated-anon";
+        ? "/api/generate-query/anon"
+        : "/api/generate-query/authenticated-anon";
 
-      const response = await fetch(endpoint, {
+      console.log('Sending request to:', endpoint);
+      const response = await fetch("/api/generate-query/authenticated-anon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

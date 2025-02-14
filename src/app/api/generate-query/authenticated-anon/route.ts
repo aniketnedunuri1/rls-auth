@@ -23,7 +23,6 @@ function generateLLMPrompt(
   schema: string,
   rls: string,
   additionalContext: string,
-  testSuites: string[]
 ): string {
   const suiteList = testSuites.map((suite) => `- ${suite}`).join("\n");
 
@@ -37,9 +36,6 @@ ${rls}
 
 User Description:
 ${additionalContext}
-
-Test Suite:
-${suiteList}
 
 Task:
 Using the provided information, generate a JSON object that defines a comprehensive suite of tests for the user's database from an anonymous user's perspective.
@@ -221,7 +217,9 @@ The JSON output must follow this structure:
 }
 
 export async function POST(req: Request): Promise<Response> {
+  console.log("Received request to generate tests1");
   try {
+    console.log("Received request to generate tests");
     const { schema, rlsPolicies, additionalContext } = await req.json();
 
     if (!schema || !rlsPolicies) {
@@ -231,7 +229,7 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    const prompt = generateLLMPrompt(schema, rlsPolicies, additionalContext || "", testSuites);
+    const prompt = generateLLMPrompt(schema, rlsPolicies, additionalContext);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini-2024-07-18",

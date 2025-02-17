@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request): Promise<Response> {
   try {
     const { url, anonKey, query } = await req.json();
-    console.log("Received query:", query);
+    console.log("ANON QUERY:", query);
 
     // Create a client using the provided URL and anon key.
     const supabase = createClient(url, anonKey);

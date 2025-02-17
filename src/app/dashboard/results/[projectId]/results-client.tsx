@@ -24,6 +24,7 @@ interface Solution {
 export function ResultsClient({ projectId }: ResultsClientProps) {
   const router = useRouter();
   const dispatch = useDispatch();
+  const [isFixing, setIsFixing] = useState(false);
   const testCategories = useSelector((state: RootState) => state.tests.categories);
   const selectedProject = useSelector((state: RootState) => 
     state.project.projects.find(p => p.id === projectId)
@@ -101,9 +102,51 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
     }
   };
 
+  // New handler to fix all tests
+  const handleFixAllTests = async () => {
+    setIsFixing(true);
+    try {
+      // Aggregate all tests from testCategories
+      let allTests: any[] = [];
+      testCategories.forEach(category => {
+        allTests = allTests.concat(category.tests);
+      });
+      const failedTests = allTests.filter(test => test.result?.status === "failed");
+      const passedTests = allTests.filter(test => test.result?.status === "passed");
+
+      if (!selectedProject) throw new Error("No project selected");
+
+      const payload = {
+        projectId: selectedProject.id,
+        failedTests,
+        passedTests,
+        dbSchema: selectedProject.dbSchema,
+        currentRLS: selectedProject.rlsSchema,
+        projectDescription: selectedProject.additionalContext || ""
+      };
+
+      const response = await fetch("/api/fix-all-tests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to fix tests");
+      }
+
+      // Redirect to /dashboard/schema/${projectId}
+      router.push(`/dashboard/schema/${projectId}`);
+    } catch (error) {
+      console.error("Error fixing all tests:", error);
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 max-w-5xl">
-      <div className="mb-8 space-y-4">
+      <div className="flex justify-between items-center mb-4">
         <Button
           variant="ghost"
           onClick={() => router.back()}
@@ -112,7 +155,31 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Schema
         </Button>
-        
+        <Button
+          variant="success"
+          onClick={handleFixAllTests}
+          disabled={isFixing}
+          className="bg-green-500 hover:bg-green-600 flex items-center"
+        >
+          {isFixing ? (
+            <>
+              <svg className="animate-spin h-5 w-5 mr-2 text-white" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" strokeOpacity="0.25" />
+                <path
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v8z"
+                  className="opacity-75"
+                />
+              </svg>
+              Fixing...
+            </>
+          ) : (
+            "Fix All Tests"
+          )}
+        </Button>
+      </div>
+
+      <div className="mb-8 space-y-4">
         <h1 className="text-3xl font-bold">Security Test Report</h1>
         <p className="text-muted-foreground">
           Project: {selectedProject?.name}

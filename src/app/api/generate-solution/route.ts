@@ -27,6 +27,7 @@ Test Details:
 Current Database Context:
 - Schema: ${dbSchema}
 - Current RLS Policy: ${currentRLS}
+- Project Description: ${projectDescription}
 
 Requirements:
 1. Respond ONLY with a valid JSON object in this exact format:

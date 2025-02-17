@@ -175,71 +175,64 @@ export default function SchemaPage() {
 
     setIsGenerating(true);
     try {
-      // Generate tests only for the selected role
-      console.log('Generating tests for role:', selectedRole);
-      const endpoint = selectedRole === 'ANONYMOUS' 
-        ? "/api/generate-query/anon"
-        : "/api/generate-query/authenticated-anon";
+        console.log('Generating tests for role:', selectedRole);
+        const endpoint = selectedRole === 'ANONYMOUS' 
+            ? "/api/generate-query/anon"
+            : "/api/generate-query/authenticated-anon";
 
-      console.log('Sending request to:', endpoint);
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          schema: selectedProject.dbSchema,
-          rlsPolicies: selectedProject.rlsSchema,
-          additionalContext: selectedProject.additionalContext
-        }),
-      });
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                schema: selectedProject.dbSchema,
+                rlsPolicies: selectedProject.rlsSchema,
+                additionalContext: selectedProject.additionalContext
+            }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`Request failed`);
-      }
+        if (!response.ok) {
+            throw new Error(`Request failed`);
+        }
 
-      const data = await response.json();
-      
-      // Add role to each test in the generated categories
-      const categoriesWithRole = data.result?.test_categories.map((category: any) => ({
-        ...category,
-        tests: category.tests.map((test: any) => ({
-          ...test,
-          role: selectedRole
-        }))
-      }));
+        const data = await response.json();
+        console.log('Received test data:', data.result?.test_categories);
+        
+        // Ensure each test has required properties
+        const categoriesWithRole = data.result?.test_categories.map((category: any) => ({
+            ...category,
+            tests: category.tests.map((test: any) => ({
+                ...test,
+                id: test.id || crypto.randomUUID(), // Ensure each test has an ID
+                role: selectedRole,
+                categoryId: category.id,
+                query: test.query || '',
+                expected: test.expected || null
+            }))
+        }));
 
-      // Load existing tests from database to ensure we have the latest state
-      const existingTestsResult = await loadTestResults(selectedProject.id);
-      const existingCategories = existingTestsResult.success ? existingTestsResult.categories : [];
+        console.log('Saving categories:', categoriesWithRole);
 
-      // Filter out tests with current role from existing categories
-      const existingOtherRoleTests = existingCategories
-        .map(category => ({
-          ...category,
-          tests: category.tests.filter(test => 
-            test.role !== selectedRole
-          )
-        }))
-        .filter(category => category.tests.length > 0);
+        // Save new tests to database first
+        const saveResult = await saveTestResults({
+            projectId: selectedProject.id,
+            categories: categoriesWithRole
+        });
 
-      // Combine new tests with existing tests from other role
-      const combinedCategories = [
-        ...existingOtherRoleTests,
-        ...categoriesWithRole
-      ];
+        if (!saveResult.success) {
+            console.error('Failed to save tests:', saveResult.error);
+            return;
+        }
 
-      // Update Redux with combined categories
-      dispatch(setTestCategories(combinedCategories));
-
-      // Save ALL categories to database
-      await saveTestResults({
-        projectId: selectedProject.id,
-        categories: combinedCategories  // Save all tests, not just new ones
-      });
+        // After successful save, load all tests from database
+        const loadResult = await loadTestResults(selectedProject.id);
+        if (loadResult.success) {
+            dispatch(setTestCategories(loadResult.categories));
+        }
 
     } catch (error) {
-      console.error("Error generating tests:", error);
+        console.error("Error generating tests:", error);
     } finally {
-      setIsGenerating(false);
+        setIsGenerating(false);
     }
   };
 
@@ -414,17 +407,18 @@ export default function SchemaPage() {
                     result: testResult
                 }));
 
-                // Save to database
+                // Save only the updated test to database
                 await saveTestResults({
                     projectId: selectedProject.id,
-                    categories: testCategories.map(category => ({
-                        ...category,
-                        tests: category.tests.map(t => 
-                            t.id === testId 
-                                ? { ...t, result: testResult }
-                                : t
-                        )
-                    }))
+                    categories: [{
+                        id: categoryId,
+                        name: testCategories.find(c => c.id === categoryId)?.name || '',
+                        description: testCategories.find(c => c.id === categoryId)?.description || '',
+                        tests: [{
+                            ...test,
+                            result: testResult
+                        }]
+                    }]
                 });
             }
         }

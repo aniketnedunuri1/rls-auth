@@ -15,15 +15,28 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
     const user = await getUser();
     if (!user) throw new Error("User not authenticated");
 
-    // Process each test individually
+    console.log('Saving categories to database:', categories);
+
     for (const category of categories) {
+      console.log(`Processing category ${category.name} with ${category.tests.length} tests`);
+      
       for (const test of category.tests) {
-        // Update or create the test
-        await prisma.test.upsert({
-          where: {
-            id: test.id,
-          },
-          create: {
+        console.log(`Saving test: ${test.name}, role: ${test.role}, id: ${test.id}`);
+        
+        try {
+          // Ensure role is never undefined and is a valid TestRole
+          const role = test.role === 'AUTHENTICATED' ? 'AUTHENTICATED' : 'ANONYMOUS';
+
+          // Convert expected and result to proper JSON format
+          const expected = test.expected 
+            ? JSON.parse(JSON.stringify(test.expected))
+            : Prisma.JsonNull;
+          
+          const result = test.result 
+            ? JSON.parse(JSON.stringify(test.result))
+            : Prisma.JsonNull;
+
+          const testData = {
             id: test.id,
             projectId,
             categoryId: category.id,
@@ -31,30 +44,38 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
             name: test.name,
             description: test.description,
             query: test.query || '',
-            expected: test.expected ? (test.expected as any) : Prisma.JsonNull,
-            result: test.result ? JSON.parse(JSON.stringify(test.result)) : Prisma.JsonNull,
-            role: test.role || 'ANONYMOUS',
+            expected,
+            result,
+            role,
             solution: test.solution || null
-          },
-          update: {
-            categoryId: category.id,
-            categoryName: category.name,
-            name: test.name,
-            description: test.description,
-            query: test.query || '',
-            expected: test.expected ? (test.expected as any) : Prisma.JsonNull,
-            result: test.result ? JSON.parse(JSON.stringify(test.result)) : Prisma.JsonNull,
-            role: test.role || 'ANONYMOUS',
-            solution: test.solution || null
-          },
-        });
+          } as const; // Use const assertion to preserve literal types
+
+          await prisma.test.upsert({
+            where: { id: test.id },
+            create: testData,
+            update: testData,
+          });
+        } catch (testError) {
+          console.error(`Error saving test ${test.name}:`, testError);
+          throw testError;
+        }
       }
     }
+
+    // Verify the save
+    const savedTests = await prisma.test.findMany({
+      where: { projectId },
+      select: { name: true, role: true, id: true }
+    });
+    console.log('Tests after save:', savedTests);
 
     return { success: true };
   } catch (error) {
     console.error('Error saving test results:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
   }
 }
 
@@ -83,12 +104,14 @@ export async function loadTestResults(projectId: string) {
       };
     }
 
-    // Get all tests for this project
+    // Get all tests for this project, ordered by categoryName and name
     const tests = await prisma.test.findMany({
-      where: { projectId }
+      where: { projectId },
+      orderBy: [
+        { categoryName: 'asc' },
+        { name: 'asc' }
+      ]
     });
-    console.log('Found tests:', tests?.length || 0);
-    console.log('Test roles:', tests.map(t => ({ name: t.name, role: t.role })));
 
     if (!tests || tests.length === 0) {
       console.log('No tests found for project:', projectId);
@@ -98,33 +121,31 @@ export async function loadTestResults(projectId: string) {
       };
     }
 
-    // Group tests by category
+    // Group tests by category while maintaining order
     const categoriesMap = new Map<string, TestCategory>();
+    const categoryOrder: string[] = [];
     
     tests.forEach((test: any) => {
       const categoryId = test.categoryId;
-      const categoryName = test.categoryName;
       
       if (!categoriesMap.has(categoryId)) {
         categoriesMap.set(categoryId, {
           id: categoryId,
-          name: categoryName,
-          description: `Test suite for ${categoryName}`,
+          name: test.categoryName,
+          description: `Test suite for ${test.categoryName}`,
           tests: []
         });
+        categoryOrder.push(categoryId);
       }
       
       const category = categoriesMap.get(categoryId);
       if (category) {
-        // Convert the result safely
         let testResult: TestResult | undefined;
         if (test.result && isTestResult(test.result)) {
           testResult = test.result;
         }
 
-        // Ensure role is properly typed and defaulted
         const role = test.role === 'AUTHENTICATED' ? 'AUTHENTICATED' : 'ANONYMOUS';
-        console.log(`Processing test ${test.name} with role: ${role}`);
 
         category.tests.push({
           id: test.id,
@@ -135,17 +156,13 @@ export async function loadTestResults(projectId: string) {
           result: testResult,
           categoryId: test.categoryId,
           solution: test.solution || undefined,
-          role: role  // Use the properly typed role
+          role: role
         });
       }
     });
 
-    const finalCategories = Array.from(categoriesMap.values());
-    console.log('Returning categories:', finalCategories.length);
-    console.log('Category tests with roles:', finalCategories.map(cat => ({
-      category: cat.name,
-      tests: cat.tests.map(t => ({ name: t.name, role: t.role }))
-    })));
+    // Use the categoryOrder to maintain consistent order
+    const finalCategories = categoryOrder.map(id => categoriesMap.get(id)!);
     
     return { 
       success: true, 

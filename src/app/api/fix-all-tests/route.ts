@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import prisma from "@/lib/prisma"; // Adjust the path as needed
+import { prisma } from "@/lib/prisma"; // Adjust the path as needed
 
 export async function POST(request: Request) {
   try {

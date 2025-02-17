@@ -6,11 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle, XCircle, MinusCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, MinusCircle, Copy, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { saveSolution } from "@/lib/actions/tests";
 import { TestCase, updateTestSolution } from "@/lib/testsSlice";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ResultsClientProps {
   projectId: string;
@@ -19,6 +21,7 @@ interface ResultsClientProps {
 interface Solution {
   description: string;
   query: string;
+  schema?: string;
 }
 
 export function ResultsClient({ projectId }: ResultsClientProps) {
@@ -50,6 +53,10 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
   const failedTests = totalTests - passedTests - notRunTests;
 
   const [loadingSolutions, setLoadingSolutions] = useState<Record<string, boolean>>({});
+  const [showRLSDialog, setShowRLSDialog] = useState(false);
+  const [newRLSSchema, setNewRLSSchema] = useState('');
+  const [hasCopied, setHasCopied] = useState(false);
+  const [solutionDescription, setSolutionDescription] = useState('');
 
   const handleGenerateSolution = async (test: TestCase) => {
     setLoadingSolutions(prev => ({ ...prev, [test.id]: true }));
@@ -102,11 +109,9 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
     }
   };
 
-  // New handler to fix all tests
   const handleFixAllTests = async () => {
     setIsFixing(true);
     try {
-      // Aggregate all tests from testCategories
       let allTests: any[] = [];
       testCategories.forEach(category => {
         allTests = allTests.concat(category.tests);
@@ -135,13 +140,23 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
         throw new Error(data.error || "Failed to fix tests");
       }
 
-      // Redirect to /dashboard/schema/${projectId}
-      router.push(`/dashboard/schema/${projectId}`);
+      // Set both schema and description
+      setNewRLSSchema(data.solution);
+      setSolutionDescription(data.description);
+      setShowRLSDialog(true);
     } catch (error) {
       console.error("Error fixing all tests:", error);
     } finally {
       setIsFixing(false);
     }
+  };
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(newRLSSchema);
+    setHasCopied(true);
+    setTimeout(() => {
+      setHasCopied(false);
+    }, 2000);
   };
 
   return (
@@ -156,7 +171,7 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
           Back to Schema
         </Button>
         <Button
-          variant="success"
+          variant="default"
           onClick={handleFixAllTests}
           disabled={isFixing}
           className="bg-green-500 hover:bg-green-600 flex items-center"
@@ -312,6 +327,62 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
           ))}
         </div>
       </ScrollArea>
+
+      <Dialog open={showRLSDialog} onOpenChange={setShowRLSDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Updated RLS Policies</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-green-50 p-4 rounded-md">
+              <h4 className="text-sm font-medium text-green-900 mb-2">
+                Changes Made:
+              </h4>
+              <p className="text-sm text-green-800 whitespace-pre-wrap">
+                {solutionDescription}
+              </p>
+            </div>
+            
+            <div>
+              <h4 className="text-sm font-medium mb-2">
+                Updated RLS Policies:
+              </h4>
+              <Textarea
+                value={newRLSSchema}
+                readOnly
+                className="h-[400px] font-mono text-sm"
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button
+                onClick={handleCopy}
+                variant="outline"
+                className="gap-2"
+              >
+                {hasCopied ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copy to Clipboard
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={() => {
+                  router.push(`/dashboard/schema/${projectId}`);
+                }}
+              >
+                Go to Schema Editor
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

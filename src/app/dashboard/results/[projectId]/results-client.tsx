@@ -8,9 +8,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, CheckCircle, XCircle, MinusCircle, Copy, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { saveSolution } from "@/lib/actions/tests";
-import { TestCase, updateTestSolution } from "@/lib/testsSlice";
+import { useState, useEffect } from "react";
+import { saveSolution, loadTestResults } from "@/lib/actions/tests";
+import { TestCase, updateTestSolution, setTestCategories } from "@/lib/testsSlice";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -22,6 +22,17 @@ interface Solution {
   description: string;
   query: string;
   schema?: string;
+}
+
+interface TestSolution {
+  description: string;
+  query: string;
+}
+
+interface APIResponse {
+  success: boolean;
+  error?: string;
+  solution?: TestSolution;
 }
 
 export function ResultsClient({ projectId }: ResultsClientProps) {
@@ -58,6 +69,19 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
   const [hasCopied, setHasCopied] = useState(false);
   const [solutionDescription, setSolutionDescription] = useState('');
 
+  useEffect(() => {
+    async function loadTests() {
+      if (!projectId) return;
+      
+      const result = await loadTestResults(projectId);
+      if (result.success) {
+        dispatch(setTestCategories(result.categories));
+      }
+    }
+
+    loadTests();
+  }, [projectId, dispatch]);
+
   const handleGenerateSolution = async (test: TestCase) => {
     setLoadingSolutions(prev => ({ ...prev, [test.id]: true }));
     try {
@@ -78,18 +102,27 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
 
       const data = await response.json();
       
-      if (!data.success || !data.solution) {
+      if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to generate solution');
       }
 
-      // Save only the SQL query part to the database
-      const saveResult = await saveSolution(test.id, data.solution.query);
+      if (!data.solution) {
+        throw new Error('No solution received from API');
+      }
+
+      // Parse the solution if it's a string
+      const solutionData = typeof data.solution === 'string' 
+        ? JSON.parse(data.solution) 
+        : data.solution;
+
+      // Save solution to the database
+      const saveResult = await saveSolution(test.id, JSON.stringify(solutionData));
       
       if (!saveResult.success) {
         throw new Error(saveResult.error || 'Failed to save solution');
       }
 
-      // Update Redux store with both description and query for display
+      // Update Redux store
       const category = testCategories.find(cat => 
         cat.tests.some(t => t.id === test.id)
       );
@@ -98,7 +131,7 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
         dispatch(updateTestSolution({
           categoryId: category.id,
           testId: test.id,
-          solution: data.solution // Store full solution in Redux for display
+          solution: solutionData
         }));
       }
       

@@ -3,20 +3,26 @@ import Anthropic from "@anthropic-ai/sdk";
 
 export async function POST(request: Request) {
   try {
-    const { 
-      failedTests, 
-      passedTests, 
-      dbSchema, 
-      currentRLS, 
-      projectDescription 
-    } = await request.json();
+    const { test, dbSchema, currentRLS } = await request.json();
+
+    // Validate the request data
+    if (!test || !dbSchema) {
+      return NextResponse.json(
+        { success: false, error: "Missing required data" },
+        { status: 400 }
+      );
+    }
 
     // Define the system instructions
-    const systemPrompt = "You are a database security expert specializing in Supabase Row Level Security. Your task is to generate a complete, working set of RLS policies in valid SQL that fixes all issues while maintaining existing functionality. Each policy must be a separate SQL statement with a single action in the FOR clause. For INSERT policies, do NOT include a USING clause; include only a WITH CHECK clause. Do NOT include any inline comments. Do NOT use the role \"anonymous\"; use \"anon\" for policies targeting unauthenticated access. Return ONLY the JSON object with no additional text, markdown, or formatting.";
+    const systemPrompt = "You are a database security expert specializing in Supabase Row Level Security. Your task is to analyze a failed test and generate a solution that fixes the issue. Return ONLY a JSON object with 'description' and 'query' fields.";
 
-    // Compose the user message with project context and test details.
-    const userMessage = `
-As a database security expert, analyze this failed security test and provide a specific RLS policy solution.
+    // Create the user prompt with test details
+    const userPrompt = `
+Database Schema:
+${dbSchema}
+
+Current RLS Policies:
+${currentRLS || 'No current RLS policies'}
 
 Test Details:
 - Name: ${test.name}
@@ -24,38 +30,23 @@ Test Details:
 - Failed Query: ${test.query}
 - Error: ${JSON.stringify(test.result?.error)}
 
-Current Database Context:
-- Schema: ${dbSchema}
-- Current RLS Policy: ${currentRLS}
-- Project Description: ${projectDescription}
-
 Requirements:
-1. Respond ONLY with a valid JSON object in this exact format:
-{
-  "description": "A clear explanation of the error and recommended fix",
-  "query": "The complete SQL RLS policy statement"
-}
+1. Analyze the test failure and current RLS policies
+2. Generate a solution that fixes the specific issue
+3. Return a JSON object with:
+   - description: A clear explanation of the fix
+   - query: The SQL query to implement the fix
 
-2. The description should explain:
-   - Why the query failed
-   - How the recommended fix addresses the issue
-   - A brief explanation of RLS policies
+Important: Return ONLY the JSON object with no additional text, markdown, or formatting.`;
 
-3. The query must be:
-   - A complete, ready-to-use SQL RLS policy
-   - Compatible with the current schema
-   - Include inline comments explaining its purpose
+    // Initialize Anthropic client
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY!
+    });
 
-Important: Ensure the response is ONLY the JSON object, with no additional text or markdown.`;
-
-    // Anthropic requires a "\n\nHuman:" turn after the optional system prompt.
-    const userContent = "\n\nHuman:" + userMessage;
-
-    // Initialize the Anthropic client with your API key.
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
     const msg = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1500,
+      max_tokens: 1000,
       temperature: 0.7,
       system: systemPrompt,
       messages: [
@@ -64,45 +55,36 @@ Important: Ensure the response is ONLY the JSON object, with no additional text 
           content: [
             {
               type: "text",
-              text: userContent
+              text: userPrompt
             }
           ]
         }
       ]
     });
 
-    console.log("Anthropic API response:", msg);
-    
-    // Extract the completion text from msg.content array.
-    const completionText = msg.content && msg.content[0] ? msg.content[0].text : "";
-    if (!completionText || completionText.trim().length === 0) {
-      console.log("Completion content is empty:", msg);
-      throw new Error("No solution generated");
+    // Get the response text safely
+    const content = msg.content[0];
+    if (!content || typeof content !== 'object' || !('text' in content)) {
+      throw new Error("Invalid response format from Claude");
     }
 
-    let solution;
     try {
-      solution = JSON.parse(completionText);
-      if (!solution.description || !solution.schema) {
-        throw new Error("Invalid solution format");
-      }
-    } catch (e) {
-      console.error("Error parsing solution:", e, "Content:", completionText);
-      throw new Error("Failed to generate valid solution");
+      const solution = JSON.parse(content.text);
+      return NextResponse.json({ success: true, solution });
+    } catch (parseError) {
+      console.error('Error parsing solution:', parseError);
+      return NextResponse.json(
+        { success: false, error: "Invalid solution format" },
+        { status: 500 }
+      );
     }
-
-    return NextResponse.json({
-      success: true,
-      solution: solution.schema,
-      description: solution.description
-    });
 
   } catch (error) {
-    console.error("Error generating comprehensive solution:", error);
+    console.error('Error generating solution:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to generate solution"
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to generate solution" 
       },
       { status: 500 }
     );

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma"; // Adjust the path as needed
-
+import { TestCase } from "@/lib/testsSlice";
 export async function POST(request: Request) {
   try {
     const {
@@ -30,7 +30,7 @@ Current RLS Policies:
 ${currentRLS}
 
 Failed Tests (Need fixing):
-${failedTests.map(test => `
+${failedTests.map((test: TestCase) => `
 Test: ${test.name}
 Description: ${test.description}
 Query: ${test.query}
@@ -38,7 +38,7 @@ Error: ${JSON.stringify(test.result?.error)}
 `).join('\n')}
 
 Passed Tests (Must remain working):
-${passedTests.map(test => `
+${passedTests.map((test: TestCase) => `
 Test: ${test.name}
 Query: ${test.query}
 `).join('\n')}
@@ -93,10 +93,13 @@ Important: Return ONLY the JSON object with no additional text, markdown, or for
       ]
     });
 
-    console.log("Anthropic API response:", msg);
-    
-    // Extract the completion text from msg.content array.
-    const completionText = msg.content && msg.content[0] ? msg.content[0].text : "";
+    // Get the response text safely
+    const content = msg.content[0];
+    if (!content || typeof content !== 'object' || !('text' in content)) {
+      throw new Error("Invalid response format from Claude");
+    }
+
+    const completionText = content.text;
     if (!completionText || !completionText.trim()) {
       throw new Error("No solution generated");
     }

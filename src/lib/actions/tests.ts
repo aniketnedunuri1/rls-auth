@@ -47,7 +47,9 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
             expected,
             result,
             role,
-            solution: test.solution || null
+            solution: test.solution 
+              ? JSON.parse(JSON.stringify(test.solution))
+              : Prisma.JsonNull
           } as const; // Use const assertion to preserve literal types
 
           await prisma.test.upsert({
@@ -141,8 +143,19 @@ export async function loadTestResults(projectId: string) {
       const category = categoriesMap.get(categoryId);
       if (category) {
         let testResult: TestResult | undefined;
-        if (test.result && isTestResult(test.result)) {
-          testResult = test.result;
+        if (test.result) {
+          try {
+            // Ensure we parse the result if it's a string
+            const resultData = typeof test.result === 'string' 
+              ? JSON.parse(test.result) 
+              : test.result;
+            
+            if (isTestResult(resultData)) {
+              testResult = resultData;
+            }
+          } catch (e) {
+            console.error('Error parsing test result:', e);
+          }
         }
 
         const role = test.role === 'AUTHENTICATED' ? 'AUTHENTICATED' : 'ANONYMOUS';
@@ -155,7 +168,7 @@ export async function loadTestResults(projectId: string) {
           expected: test.expected as ExpectedOutcome,
           result: testResult,
           categoryId: test.categoryId,
-          solution: test.solution || undefined,
+          solution: test.solution,
           role: role
         });
       }
@@ -223,8 +236,12 @@ export async function saveSolution(testId: string, solution: string) {
         id: testId,
       },
       data: {
+        solution: solution,
         result: {
-          solution: solution  // Store solution within the result JSON field
+          status: 'failed',
+          data: null,
+          error: null,
+          response: null
         }
       },
     });

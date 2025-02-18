@@ -3,7 +3,7 @@
 import { getUser } from './auth';
 import { TestCategory, TestCase, ExpectedOutcome, TestResult } from '@/lib/testsSlice';
 import { prisma } from '../prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, TestRole } from '@prisma/client';
 
 interface SaveTestResultsParams {
   projectId: string;
@@ -15,26 +15,21 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
     const user = await getUser();
     if (!user) throw new Error("User not authenticated");
 
-    console.log('Saving categories to database:', categories);
+    console.log('Starting saveTestResults with:', { projectId, categoryCount: categories.length });
 
     for (const category of categories) {
-      console.log(`Processing category ${category.name} with ${category.tests.length} tests`);
+      console.log(`Processing category:`, {
+        categoryId: category.id,
+        name: category.name,
+        testCount: category.tests.length
+      });
       
       for (const test of category.tests) {
-        console.log(`Saving test: ${test.name}, role: ${test.role}, id: ${test.id}`);
-        
         try {
-          // Ensure role is never undefined and is a valid TestRole
-          const role = test.role === 'AUTHENTICATED' ? 'AUTHENTICATED' : 'ANONYMOUS';
-
-          // Convert expected and result to proper JSON format
-          const expected = test.expected 
-            ? JSON.parse(JSON.stringify(test.expected))
-            : Prisma.JsonNull;
-          
-          const result = test.result 
-            ? JSON.parse(JSON.stringify(test.result))
-            : Prisma.JsonNull;
+          // Convert role string to TestRole enum
+          const role: TestRole = test.role === 'AUTHENTICATED' 
+            ? TestRole.AUTHENTICATED 
+            : TestRole.ANONYMOUS;
 
           const testData = {
             id: test.id,
@@ -42,15 +37,13 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
             categoryId: category.id,
             categoryName: category.name,
             name: test.name,
-            description: test.description,
+            description: test.description || '',
             query: test.query || '',
-            expected,
-            result,
+            expected: test.expected || null,
+            result: test.result || null,
             role,
-            solution: test.solution 
-              ? JSON.parse(JSON.stringify(test.solution))
-              : Prisma.JsonNull
-          } as const; // Use const assertion to preserve literal types
+            solution: test.solution || null
+          };
 
           await prisma.test.upsert({
             where: { id: test.id },
@@ -58,22 +51,23 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
             update: testData,
           });
         } catch (testError) {
-          console.error(`Error saving test ${test.name}:`, testError);
-          throw testError;
+          // Safe error logging without circular references
+          console.error('Error saving test:', {
+            testId: test.id,
+            testName: test.name,
+            errorMessage: testError instanceof Error ? testError.message : 'Unknown error'
+          });
+          continue;
         }
       }
     }
 
-    // Verify the save
-    const savedTests = await prisma.test.findMany({
-      where: { projectId },
-      select: { name: true, role: true, id: true }
-    });
-    console.log('Tests after save:', savedTests);
-
     return { success: true };
   } catch (error) {
-    console.error('Error saving test results:', error);
+    // Safe error logging for top-level errors
+    console.error('Error in saveTestResults:', {
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
@@ -145,14 +139,18 @@ export async function loadTestResults(projectId: string) {
         let testResult: TestResult | undefined;
         if (test.result) {
           try {
-            // Ensure we parse the result if it's a string
+            // More robust result parsing
             const resultData = typeof test.result === 'string' 
               ? JSON.parse(test.result) 
               : test.result;
             
-            if (isTestResult(resultData)) {
-              testResult = resultData;
-            }
+            // Ensure we have all required fields
+            testResult = {
+              status: resultData.status || 'failed',
+              data: resultData.data,
+              error: resultData.error,
+              response: resultData.response
+            };
           } catch (e) {
             console.error('Error parsing test result:', e);
           }
@@ -168,7 +166,9 @@ export async function loadTestResults(projectId: string) {
           expected: test.expected as ExpectedOutcome,
           result: testResult,
           categoryId: test.categoryId,
-          solution: test.solution,
+          solution: typeof test.solution === 'string' 
+            ? JSON.parse(test.solution) 
+            : test.solution,
           role: role
         });
       }
@@ -236,13 +236,7 @@ export async function saveSolution(testId: string, solution: string) {
         id: testId,
       },
       data: {
-        solution: solution,
-        result: {
-          status: 'failed',
-          data: null,
-          error: null,
-          response: null
-        }
+        solution: solution
       },
     });
     return { success: true, test: updatedTest };

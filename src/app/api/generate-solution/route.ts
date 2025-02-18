@@ -62,12 +62,12 @@ Important: Return ONLY the JSON object with no additional text, markdown, or for
       ]
     });
 
-    // Get the response text safely
+    // Fix: Safely extract text from the response
     const content = msg.content[0];
-    if (!content || typeof content !== 'object' || !('text' in content)) {
-      throw new Error("Invalid response format from Claude");
+    if (!('text' in content)) {
+      throw new Error('Unexpected response format from Claude');
     }
-
+    
     try {
       const solution = JSON.parse(content.text);
       return NextResponse.json({ success: true, solution });

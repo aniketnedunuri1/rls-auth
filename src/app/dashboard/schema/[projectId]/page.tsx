@@ -327,10 +327,7 @@ export default function SchemaPage() {
     }
 
     if (!selectedProject.supabaseUrl || !selectedProject.supabaseAnonKey) {
-        console.log('Missing Supabase configuration:', {
-            hasUrl: !!selectedProject.supabaseUrl,
-            hasKey: !!selectedProject.supabaseAnonKey
-        });
+        console.log('Missing Supabase configuration');
         return;
     }
   
@@ -355,11 +352,9 @@ export default function SchemaPage() {
             method: "POST",
             headers: { 
                 "Content-Type": "application/json",
-                // Add cache control headers
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Pragma": "no-cache"
             },
-            // Disable caching
             cache: 'no-store',
             body: JSON.stringify({
                 query: queryToRun,
@@ -369,12 +364,6 @@ export default function SchemaPage() {
         });
 
         if (!response.ok) {
-            console.error('API response not ok:', {
-                status: response.status,
-                statusText: response.statusText
-            });
-            const errorText = await response.text();
-            console.error('Error response:', errorText);
             throw new Error(`API request failed: ${response.status} ${response.statusText}`);
         }
   
@@ -407,18 +396,17 @@ export default function SchemaPage() {
                     result: testResult
                 }));
 
-                // Save only the updated test to database
+                // Save the entire test state to database
                 await saveTestResults({
                     projectId: selectedProject.id,
-                    categories: [{
-                        id: categoryId,
-                        name: testCategories.find(c => c.id === categoryId)?.name || '',
-                        description: testCategories.find(c => c.id === categoryId)?.description || '',
-                        tests: [{
-                            ...test,
-                            result: testResult
-                        }]
-                    }]
+                    categories: testCategories.map(cat => ({
+                        ...cat,
+                        tests: cat.tests.map(t => 
+                            t.id === testId 
+                                ? { ...t, result: testResult }
+                                : t
+                        )
+                    }))
                 });
             }
         }

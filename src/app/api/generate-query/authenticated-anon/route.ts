@@ -1,9 +1,5 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import Anthropic from "@anthropic-ai/sdk";
 
 // The test suite names we want to cover in one shot:
 const testSuites = [
@@ -19,10 +15,14 @@ function buildSuiteInstruction(suites: string[]): string {
   return suites.map((suite) => `- ${suite}`).join("\n");
 }
 
+/**
+ * Modified prompt for strictly anonymous users.
+ */
 function generateLLMPrompt(
   schema: string,
   rls: string,
   additionalContext: string,
+  testSuites: string[]
 ): string {
   const suiteList = testSuites.map((suite) => `- ${suite}`).join("\n");
 
@@ -171,9 +171,9 @@ TEST CATEGORIES TO GENERATE:
    - Testing relationship-based access
 
 2. Table-Level Write Access
-   - Testing anonymous insert for each table
-   - Testing anonymous update for each table
-   - Testing anonymous delete for each table
+   - Testing anonymous authenticated insert for each table
+   - Testing anonymous authenticated update for each table
+   - Testing anonymous authenticated delete for each table
    - Testing foreign key constraints
 
 3. RLS Policy Enforcement
@@ -188,7 +188,7 @@ REQUIREMENTS:
 3. Each table must have at least 5 unique test cases
 4. All queries must be executable with only anon key
 5. All queries must be unique and not repeat the same pattern, and they must be a full comprehensive test of the RLS policies and schema. Continue to generate unique queries until you have enough unique tests for each table.
-6. All tests must be from anonymous user perspective
+6. All tests must be from anonymous authenticateduser perspective
 7. Focus on RLS policy enforcement
 8. Output must be valid JSON
 9. Tests must respect table relationships and foreign key constraints
@@ -216,67 +216,78 @@ The JSON output must follow this structure:
 }`;
 }
 
-export async function POST(req: Request): Promise<Response> {
-  console.log("Received request to generate tests1");
+export async function POST(request: Request): Promise<Response> {
   try {
+    // Extract the necessary parameters from the request.
     console.log("Received request to generate tests");
-    const { schema, rlsPolicies, additionalContext } = await req.json();
+    const { schema, rlsPolicies, additionalContext } = await request.json();
+    // Build the prompt using the helper function.
+    const prompt = generateLLMPrompt(
+      schema,
+      rlsPolicies,
+      additionalContext || "",
+      testSuites
+    );
 
-    if (!schema || !rlsPolicies) {
-      return new Response(
-        JSON.stringify({ error: "Schema or RLS policies are missing" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
+    // System instructions remain identical.
+    const systemPrompt =
+      "You are a malicious database penetration tester. Follow the instructions exactly to generate a strict JSON object. Do not output any extra text.";
 
-    const prompt = generateLLMPrompt(schema, rlsPolicies, additionalContext);
+    // Anthropic requires a "\n\nHuman:" turn after the optional system prompt.
+    const userContent = "\n\nHuman:" + prompt;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini-2024-07-18",
+    // Initialize the Anthropic client with your API key.
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+    const msg = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 4000,
+      temperature: 0.7,
+      system: systemPrompt,
       messages: [
         {
-          role: "system",
-          content: "You are a malicious database penetration tester. Follow the instructions exactly to generate a strict JSON object. Do not output any extra text.",
-        },
-        {
           role: "user",
-          content: prompt,
+          content: [
+            {
+              type: "text",
+              text: userContent,
+            },
+          ],
         },
       ],
-      max_tokens: 4000,
     });
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("No content received from OpenAI");
+    console.log("Anthropic API response:", msg);
+
+    // Extract the completion text from the first element in the content array.
+    const completionText = msg.content && msg.content[0] ? msg.content[0].text : "";
+    if (!completionText || completionText.trim().length === 0) {
+      console.log("Completion content is empty:", msg);
+      throw new Error("No solution generated");
     }
 
-    const escapedContent = content.replace(/(?<!\\)\\'/g, "\\\\'");
-
-    let result;
+    let solution;
     try {
-      result = JSON.parse(escapedContent);
-    } catch (parseError) {
-      console.error("Error parsing OpenAI response:", parseError);
-      console.error("Response content:", escapedContent);
-      throw new Error("Invalid response format from OpenAI");
+      solution = JSON.parse(completionText);
+      if (!solution.test_categories) {
+        throw new Error("Invalid solution format");
+      }
+    } catch (e) {
+      console.error("Error parsing solution:", e, "Content:", completionText);
+      throw new Error("Failed to generate valid solution");
     }
 
-    return new Response(JSON.stringify({ result }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
+    return NextResponse.json({
+      success: true,
+      result: solution,
     });
   } catch (error) {
-    console.error("Error in test runner:", error);
-    return new Response(
-      JSON.stringify({
-        error: "Error processing request",
-        details: error instanceof Error ? error.message : "Unknown error",
-      }),
+    console.error("Error generating tests:", error);
+    return NextResponse.json(
       {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to generate tests",
+      },
+      { status: 500 }
     );
   }
-}
+} 

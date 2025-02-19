@@ -1,11 +1,13 @@
 import { ResultsClient } from './results-client';
 
 interface PageProps {
-  params: {
-    projectId: string;
-  };  
+  params: {
+    projectId: string;
+  };
 }
 
-export default async function ResultsPage({ params }: PageProps) {  
-  return <ResultsClient projectId={params.projectId} />;
+export default function ResultsPage({ params }: PageProps) {
+  return (
+    <ResultsClient projectId={params.projectId} />
+  );
 }

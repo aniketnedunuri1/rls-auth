@@ -29,9 +29,10 @@ import { loadTestResults, saveTestResults } from "@/lib/actions/tests";
 interface TestError {
   code?: string;
   message?: string;
+  // add additional properties if needed (e.g., details, hint)
 }
 
-// Update your expected outcome interface to use TestError instead of any
+// Update your expected outcome interface to enforce the proper error type.
 interface TestExpectedOutcome {
   data: unknown;
   error: TestError | null;
@@ -39,15 +40,18 @@ interface TestExpectedOutcome {
   statusText?: string;
 }
 
-// Define the response type coming from the test API
+// Define the response type from the test API.
 interface TestResponse {
   data: unknown;
   error: TestError | null;
 }
 
-// A type guard to narrow unknown errors to TestError
+// Updated type guard that avoids using any by leveraging Record<string, unknown>
 function isTestError(error: unknown): error is TestError {
-  return typeof error === "object" && error !== null && "code" in error;
+  if (typeof error !== "object" || error === null) return false;
+  // Instead of casting to any, we cast to a record of unknown values.
+  const err = error as Record<string, unknown>;
+  return typeof err.code === "string";
 }
 
 interface DatabaseProvider {
@@ -69,6 +73,20 @@ const databaseProviders: DatabaseProvider[] = [
   { id: "aws", name: "AWS", logo: "/logos/aws.png" },
   { id: "azure", name: "Azure", logo: "/placeholder.svg?height=24&width=24" },
 ]
+
+// Define proper types for test categories and test cases received from the API.
+interface GeneratedTestCase {
+  id?: string;
+  query?: string;
+  expected?: TestExpectedOutcome | null;
+  [key: string]: unknown;
+}
+
+interface GeneratedTestCategory {
+  id: string;
+  tests: GeneratedTestCase[];
+  [key: string]: unknown;
+}
 
 export default function SchemaPage() {
   const dispatch = useDispatch()
@@ -177,64 +195,65 @@ export default function SchemaPage() {
 
     setIsGenerating(true);
     try {
-        console.log('Generating tests for role:', selectedRole);
-        const endpoint = selectedRole === 'ANONYMOUS' 
-            ? "/api/generate-query/anon"
-            : "/api/generate-query/authenticated-anon";
+      console.log('Generating tests for role:', selectedRole);
+      const endpoint =
+        selectedRole === 'ANONYMOUS'
+          ? "/api/generate-query/anon"
+          : "/api/generate-query/authenticated-anon";
 
-        const response = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                schema: selectedProject.dbSchema,
-                rlsPolicies: selectedProject.rlsSchema,
-                additionalContext: selectedProject.additionalContext
-            }),
-        });
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          schema: selectedProject.dbSchema,
+          rlsPolicies: selectedProject.rlsSchema,
+          additionalContext: selectedProject.additionalContext
+        }),
+      });
 
-        if (!response.ok) {
-            throw new Error(`Request failed`);
-        }
+      if (!response.ok) {
+        throw new Error(`Request failed`);
+      }
 
-        const data = await response.json();
-        console.log('Received test data:', data.result?.test_categories);
-        
-        // Ensure each test has required properties
-        const categoriesWithRole = data.result?.test_categories.map((category: any) => ({
-            ...category,
-            tests: category.tests.map((test: any) => ({
-                ...test,
-                id: test.id || crypto.randomUUID(), // Ensure each test has an ID
-                role: selectedRole,
-                categoryId: category.id,
-                query: test.query || '',
-                expected: test.expected || null
-            }))
-        }));
+      const data = await response.json();
+      console.log('Received test data:', data.result?.test_categories);
 
-        console.log('Saving categories:', categoriesWithRole);
+      // Instead of mapping with "any", we assert that test_categories conforms to our defined type.
+      const categoriesWithRole = (data.result?.test_categories as GeneratedTestCategory[]).map(category => ({
+        ...category,
+        tests: category.tests.map(test => ({
+          ...test,
+          id: test.id || crypto.randomUUID(), // Ensure each test has an ID
+          role: selectedRole,
+          categoryId: category.id,
+          query: test.query || '',
+          expected: test.expected || null
+        }))
+      }));
 
-        // Save new tests to database first
-        const saveResult = await saveTestResults({
-            projectId: selectedProject.id,
-            categories: categoriesWithRole
-        });
+      console.log('Saving categories:', categoriesWithRole);
 
-        if (!saveResult.success) {
-            console.error('Failed to save tests:', saveResult.error);
-            return;
-        }
+      // Save new tests to database first.
+      const saveResult = await saveTestResults({
+        projectId: selectedProject.id,
+        categories: categoriesWithRole
+      });
 
-        // After successful save, load all tests from database
-        const loadResult = await loadTestResults(selectedProject.id);
-        if (loadResult.success) {
-            dispatch(setTestCategories(loadResult.categories));
-        }
+      if (!saveResult.success) {
+        console.error('Failed to save tests:', saveResult.error);
+        return;
+      }
+
+      // After successful save, load all tests from database.
+      const loadResult = await loadTestResults(selectedProject.id);
+      if (loadResult.success) {
+        dispatch(setTestCategories(loadResult.categories));
+      }
 
     } catch (error) {
-        console.error("Error generating tests:", error);
+      console.error("Error generating tests:", error);
     } finally {
-        setIsGenerating(false);
+      setIsGenerating(false);
     }
   };
 
@@ -249,7 +268,7 @@ export default function SchemaPage() {
 
     console.log('Comparing results:', { expected, actual, query });
 
-    // Reject invalid tests
+    // Reject tests with forbidden keyword references.
     if (
         query.includes('uuid') || 
         query.includes('some-') || 
@@ -269,7 +288,7 @@ export default function SchemaPage() {
     const isUpdateQuery = query.includes('.update(');
     const isDeleteQuery = query.includes('.delete(');
 
-    // For SELECT queries
+    // For SELECT queries: if an empty array is expected.
     if (isSelectQuery) {
         if (Array.isArray(expected.data) && expected.data.length === 0) {
             return (
@@ -279,7 +298,7 @@ export default function SchemaPage() {
         }
     }
 
-    // For UPDATE/DELETE queries
+    // For UPDATE/DELETE queries.
     if (isUpdateQuery || isDeleteQuery) {
         const hasWhereClause = query.includes('.eq(') || 
                               query.includes('.match(') || 
@@ -287,11 +306,18 @@ export default function SchemaPage() {
                               query.includes('.where(');
         
         if (!hasWhereClause) {
-            return actual.error?.code === "21000" || 
-                   actual.error?.message?.includes("requires a WHERE clause");
+            return (
+                actual.error?.code === "21000" || 
+                (typeof actual.error?.message === "string" &&
+                  actual.error?.message.includes("requires a WHERE clause"))
+            );
         }
 
-        if (expected.error && (expected.error as any).code === "42501") {
+        if (
+            expected.error &&
+            isTestError(expected.error) &&
+            expected.error.code === "42501"
+        ) {
             return (
                 actual.error?.code === "42501" ||
                 actual.error?.code === "21000" ||
@@ -300,16 +326,22 @@ export default function SchemaPage() {
         }
     }
 
-    // For INSERT queries
-    if (isInsertQuery && expected.error && (expected.error as any).code === "42501") {
+    // For INSERT queries.
+    if (
+        isInsertQuery &&
+        expected.error &&
+        isTestError(expected.error) &&
+        expected.error.code === "42501"
+    ) {
         return (
             actual.error?.code === "42501" ||
             (actual.error === null && actual.data === null)
         );
     }
 
-    if (expected.error) {
-        return actual.error?.code === (expected.error as any).code;
+    // For all other cases where an error is expected, compare error codes.
+    if (expected.error && isTestError(expected.error)) {
+        return actual.error?.code === expected.error.code;
     }
 
     return !actual.error && 

@@ -3,7 +3,7 @@
 import { getUser } from './auth';
 import { TestCategory, TestCase, ExpectedOutcome, TestResult } from '@/lib/testsSlice';
 import { prisma } from '../prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, TestRole } from '@prisma/client';
 
 interface SaveTestResultsParams {
   projectId: string;
@@ -15,47 +15,63 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
     const user = await getUser();
     if (!user) throw new Error("User not authenticated");
 
-    // Get existing tests to preserve IDs
-    const existingTests = await prisma.test.findMany({
-      where: { projectId },
-      select: { id: true, name: true }
-    });
+    console.log('Starting saveTestResults with:', { projectId, categoryCount: categories.length });
 
-    // Create a map of test names to existing IDs
-    const existingTestMap = new Map(
-      existingTests.map(test => [test.name, test.id])
-    );
-
-    // First, delete existing test results for this project
-    await prisma.test.deleteMany({
-      where: { projectId }
-    });
-
-    // Then create new test entries with category information
-    const testData = categories.flatMap(category => 
-      category.tests.map(test => ({
-        id: existingTestMap.get(test.name) || test.id,
-        projectId,
+    for (const category of categories) {
+      console.log(`Processing category:`, {
         categoryId: category.id,
-        categoryName: category.name,
-        name: test.name,
-        description: test.description,
-        query: test.query || '',
-        expected: test.expected ? (test.expected as any) : Prisma.JsonNull,
-        result: test.result ? JSON.parse(JSON.stringify(test.result)) : Prisma.JsonNull,
-        role: test.role || 'ANONYMOUS',
-        solution: test.solution || null
-      }))
-    );
+        name: category.name,
+        testCount: category.tests.length
+      });
+      
+      for (const test of category.tests) {
+        try {
+          // Convert role string to TestRole enum
+          const role: TestRole = test.role === 'AUTHENTICATED' 
+            ? TestRole.AUTHENTICATED 
+            : TestRole.ANONYMOUS;
 
-    await prisma.test.createMany({
-      data: testData
-    });
+          const testData = {
+            id: test.id,
+            projectId,
+            categoryId: category.id,
+            categoryName: category.name,
+            name: test.name,
+            description: test.description || '',
+            query: test.query || '',
+            expected: test.expected || null,
+            result: test.result || null,
+            role,
+            solution: test.solution || null
+          };
+
+          await prisma.test.upsert({
+            where: { id: test.id },
+            create: testData,
+            update: testData,
+          });
+        } catch (testError) {
+          // Safe error logging without circular references
+          console.error('Error saving test:', {
+            testId: test.id,
+            testName: test.name,
+            errorMessage: testError instanceof Error ? testError.message : 'Unknown error'
+          });
+          continue;
+        }
+      }
+    }
 
     return { success: true };
   } catch (error) {
-    console.error('Error saving test results:', error);
-    return { success: false, error: (error as Error).message };
+    // Safe error logging for top-level errors
+    console.error('Error in saveTestResults:', {
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
   }
 }
 
@@ -84,25 +100,14 @@ export async function loadTestResults(projectId: string) {
       };
     }
 
-    // First check if project exists
-    const project = await prisma.project.findUnique({
-      where: { id: projectId }
-    });
-    console.log('Project lookup result:', project);
-
-    if (!project) {
-      console.log('No project found for id:', projectId);
-      return {
-        success: true,
-        categories: []
-      };
-    }
-
-    // Get all tests for this project
+    // Get all tests for this project, ordered by categoryName and name
     const tests = await prisma.test.findMany({
-      where: { projectId }
+      where: { projectId },
+      orderBy: [
+        { categoryName: 'asc' },
+        { name: 'asc' }
+      ]
     });
-    console.log('Found tests:', tests?.length || 0);
 
     if (!tests || tests.length === 0) {
       console.log('No tests found for project:', projectId);
@@ -112,29 +117,46 @@ export async function loadTestResults(projectId: string) {
       };
     }
 
-    // Group tests by category
+    // Group tests by category while maintaining order
     const categoriesMap = new Map<string, TestCategory>();
+    const categoryOrder: string[] = [];
     
     tests.forEach((test: any) => {
       const categoryId = test.categoryId;
-      const categoryName = test.categoryName;
       
       if (!categoriesMap.has(categoryId)) {
         categoriesMap.set(categoryId, {
           id: categoryId,
-          name: categoryName,
-          description: `Test suite for ${categoryName}`,
+          name: test.categoryName,
+          description: `Test suite for ${test.categoryName}`,
           tests: []
         });
+        categoryOrder.push(categoryId);
       }
       
       const category = categoriesMap.get(categoryId);
       if (category) {
-        // Convert the result safely
         let testResult: TestResult | undefined;
-        if (test.result && isTestResult(test.result)) {
-          testResult = test.result;
+        if (test.result) {
+          try {
+            // More robust result parsing
+            const resultData = typeof test.result === 'string' 
+              ? JSON.parse(test.result) 
+              : test.result;
+            
+            // Ensure we have all required fields
+            testResult = {
+              status: resultData.status || 'failed',
+              data: resultData.data,
+              error: resultData.error,
+              response: resultData.response
+            };
+          } catch (e) {
+            console.error('Error parsing test result:', e);
+          }
         }
+
+        const role = test.role === 'AUTHENTICATED' ? 'AUTHENTICATED' : 'ANONYMOUS';
 
         category.tests.push({
           id: test.id,
@@ -144,29 +166,26 @@ export async function loadTestResults(projectId: string) {
           expected: test.expected as ExpectedOutcome,
           result: testResult,
           categoryId: test.categoryId,
-          solution: test.solution || undefined,
-          role: (test.role as 'ANONYMOUS' | 'AUTHENTICATED') || 'ANONYMOUS'
+          solution: typeof test.solution === 'string' 
+            ? JSON.parse(test.solution) 
+            : test.solution,
+          role: role
         });
       }
     });
 
-    const finalCategories = Array.from(categoriesMap.values());
-    console.log('Returning categories:', finalCategories.length);
+    // Use the categoryOrder to maintain consistent order
+    const finalCategories = categoryOrder.map(id => categoriesMap.get(id)!);
     
     return { 
       success: true, 
       categories: finalCategories
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    const errorStack = error instanceof Error ? error.stack : 'No stack trace available';
-    
-    console.error('Error in loadTestResults:', errorMessage);
-    console.error('Error stack:', errorStack);
-    
+    console.error('Error in loadTestResults:', error);
     return { 
       success: false, 
-      error: errorMessage,
+      error: error instanceof Error ? error.message : 'Unknown error',
       categories: [] 
     };
   }
@@ -217,9 +236,7 @@ export async function saveSolution(testId: string, solution: string) {
         id: testId,
       },
       data: {
-        result: {
-          solution: solution  // Store solution within the result JSON field
-        }
+        solution: solution
       },
     });
     return { success: true, test: updatedTest };

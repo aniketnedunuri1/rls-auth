@@ -30,13 +30,6 @@ export default function DashboardNav() {
           </Button>
         </Link>
 
-        <Link href={selectedProject ? `/dashboard/tests/${selectedProject.id}` : "/dashboard/no-project"}>
-          <Button variant="ghost" className="w-full justify-start">
-            <Play className="mr-2 h-4 w-4" />
-            Tests
-          </Button>
-        </Link>
-
         <Link href={selectedProject ? `/dashboard/results/${selectedProject.id}` : "/dashboard/no-project"}>
           <Button variant="ghost" className="w-full justify-start">
             <FileText className="mr-2 h-4 w-4" />

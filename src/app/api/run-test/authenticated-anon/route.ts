@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request): Promise<Response> {
   try {
     const { url, anonKey, query } = await req.json();
-    console.log("Received query:", query);
+    console.log("AUTHENTICATED ANON QUERY:", query);
 
     // Create a client and sign in anonymously
     const supabase = createClient(url, anonKey);

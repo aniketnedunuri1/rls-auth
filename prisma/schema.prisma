@@ -52,7 +52,7 @@ model Test {
   query       String?   
   expected    Json?     
   result      Json?     
-  solution    String?    // Add this field to store recommended fixes
+  solution    Json?     // Change from String? to Json? to store structured data
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }

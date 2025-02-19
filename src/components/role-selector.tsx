@@ -5,13 +5,25 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Check, ChevronDown } from "lucide-react";
 
+type RoleSelectorProps = {
+  role: 'ANONYMOUS' | 'AUTHENTICATED';
+  setRole: (role: 'ANONYMOUS' | 'AUTHENTICATED') => void;
+};
+
 const roles = [
-  { id: "postgres", name: "postgres", description: "Full database access." },
-  { id: "anon", name: "anon", description: "For anonymous access. Respects Row Level Security (RLS) policies." },
-  { id: "authenticated", name: "authenticated", description: "For logged-in users with standard permissions." },
+  { 
+    id: 'ANONYMOUS' as const, 
+    name: 'anon', 
+    description: "For anonymous access. Respects Row Level Security (RLS) policies." 
+  },
+  { 
+    id: 'AUTHENTICATED' as const, 
+    name: 'authenticated', 
+    description: "For logged-in users with standard permissions." 
+  },
 ];
 
-export default function RoleSelector({ role, setRole }: { role: string; setRole: (role: string) => void }) {
+export default function RoleSelector({ role, setRole }: RoleSelectorProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -42,7 +54,9 @@ export default function RoleSelector({ role, setRole }: { role: string; setRole:
             </button>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground mt-2">{roles.find((r) => r.id === role)?.description}</p>
+        <p className="text-xs text-muted-foreground mt-2">
+          {roles.find((r) => r.id === role)?.description}
+        </p>
       </PopoverContent>
     </Popover>
   );

@@ -1,9 +1,5 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import Anthropic from "@anthropic-ai/sdk";
 
 // The test suite names we want to cover in one shot:
 const testSuites = [
@@ -19,6 +15,9 @@ function buildSuiteInstruction(suites: string[]): string {
   return suites.map((suite) => `- ${suite}`).join("\n");
 }
 
+/**
+ * Modified prompt for strictly anonymous users.
+ */
 function generateLLMPrompt(
   schema: string,
   rls: string,
@@ -45,17 +44,17 @@ Task:
 Using the provided information, generate a JSON object that defines a comprehensive suite of tests for the user's database from an anonymous user's perspective.
 
 IMPORTANT ROLE AND ACCESS RULES:
-- You are STRICTLY an anonymous authenticated user (via signInAnonymously)
-- You have NO access to any existing records
-- All queries must be strictly acting as an anonymous user
-- Only attempt operations that a real anonymous user could perform
-- Focus on testing RLS policies and access restrictions
-- For insert operations, use only required fields with actual values
-- For select operations, use only required fields with actual values
-- If a query you generate references a record ID, ensure to name it "insert-{table_name}-{record_id}"
-- Ensure your testing suite is comprehensive and covers all aspects of RLS policies and all tables provided in the schema
+- You are STRICTLY an anonymous user.
+- You have NO access to any existing records.
+- All queries must be strictly acting as an anonymous user.
+- Only attempt operations that a real anonymous user could perform.
+- Focus on testing RLS policies and access restrictions.
+- For insert operations, use only required fields with actual values.
+- For select operations, use only required fields with actual values.
+- If a query you generate references a record ID, ensure to name it "insert-{table_name}-{record_id}".
+- Ensure your testing suite is comprehensive and covers all aspects of RLS policies and all tables provided in the schema.
 
-CORRECT TEST PATTERNS FOR ANON AUTH:
+CORRECT TEST PATTERNS FOR ANON:
 
 1. Select Queries:
    ✓ const { data, error } = await supabase.from("fans").select("*");
@@ -79,10 +78,9 @@ CORRECT TEST PATTERNS FOR ANON AUTH:
        .eq("senderId", "insert-{table_name}-{record_id}");
 
 SCHEMA-SPECIFIC RULES:
-- Only use columns that exist in the provided schema
-- Do not assume existence of columns, if a column is not in the schema, do not use it in your queries
-- Focus on basic CRUD operations without filters
-
+- Only use columns that exist in the provided schema.
+- Do not assume existence of columns; if a column is not in the schema, do not use it in your queries.
+- Focus on basic CRUD operations without filters.
 
 EXPECTED RESPONSE FORMATS:
 
@@ -187,15 +185,15 @@ TEST CATEGORIES TO GENERATE:
    - Testing relationship-based policies
 
 REQUIREMENTS:
-1. Must generate tests for EVERY table defined in the schema
-2. Each table must have tests for all operations (SELECT, INSERT, UPDATE, DELETE)
-3. Each table must have at least 5 unique test cases
-4. All queries must be executable with only anon key
+1. Must generate tests for EVERY table defined in the schema.
+2. Each table must have tests for all operations (SELECT, INSERT, UPDATE, DELETE).
+3. Each table must have at least 5 unique test cases.
+4. All queries must be executable with only the anon key.
 5. All queries must be unique and not repeat the same pattern, and they must be a full comprehensive test of the RLS policies and schema. Continue to generate unique queries until you have enough unique tests for each table.
-6. All tests must be from anonymous user perspective
-7. Focus on RLS policy enforcement
-8. Output must be valid JSON
-9. Tests must respect table relationships and foreign key constraints
+6. All tests must be from an anonymous user perspective.
+7. Focus on RLS policy enforcement.
+8. Output must be valid JSON.
+9. Tests must respect table relationships and foreign key constraints.
 
 The JSON output must follow this structure:
 {
@@ -211,7 +209,7 @@ The JSON output must follow this structure:
           "description": "Test description",
           "query": "const { data, error } = await supabase...",
           "expected": {
-            (FOLLOW EXPECTED RESPONSE FORMAT AS STATED ABOVE)
+            // (FOLLOW EXPECTED RESPONSE FORMAT AS STATED ABOVE)
           }
         }
       ]
@@ -220,65 +218,78 @@ The JSON output must follow this structure:
 }`;
 }
 
-export async function POST(req: Request): Promise<Response> {
+export async function POST(request: Request): Promise<Response> {
   try {
-    const { schema, rlsPolicies, additionalContext } = await req.json();
+    // Extract the necessary parameters from the request.
+    console.log("Received request to generate tests");
+    const { schema, rlsPolicies, additionalContext } = await request.json();
+    // Build the prompt using the helper function.
+    const prompt = generateLLMPrompt(
+      schema,
+      rlsPolicies,
+      additionalContext || "",
+      testSuites
+    );
 
-    if (!schema || !rlsPolicies) {
-      return new Response(
-        JSON.stringify({ error: "Schema or RLS policies are missing" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
+    // System instructions remain identical.
+    const systemPrompt =
+      "You are a malicious database penetration tester. Follow the instructions exactly to generate a strict JSON object. Do not output any extra text.";
 
-    const prompt = generateLLMPrompt(schema, rlsPolicies, additionalContext || "", testSuites);
+    // Anthropic requires a "\n\nHuman:" turn after the optional system prompt.
+    const userContent = "\n\nHuman:" + prompt;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini-2024-07-18",
+    // Initialize the Anthropic client with your API key.
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+    const msg = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 4000,
+      temperature: 0.7,
+      system: systemPrompt,
       messages: [
         {
-          role: "system",
-          content: "You are a malicious database penetration tester. Follow the instructions exactly to generate a strict JSON object. Do not output any extra text.",
-        },
-        {
           role: "user",
-          content: prompt,
+          content: [
+            {
+              type: "text",
+              text: userContent,
+            },
+          ],
         },
       ],
-      max_tokens: 4000,
     });
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("No content received from OpenAI");
+    console.log("Anthropic API response:", msg);
+
+    // Extract the completion text from the first element in the content array.
+    const completionText = msg.content && msg.content[0] ? msg.content[0].text : "";
+    if (!completionText || completionText.trim().length === 0) {
+      console.log("Completion content is empty:", msg);
+      throw new Error("No solution generated");
     }
 
-    const escapedContent = content.replace(/(?<!\\)\\'/g, "\\\\'");
-
-    let result;
+    let solution;
     try {
-      result = JSON.parse(escapedContent);
-    } catch (parseError) {
-      console.error("Error parsing OpenAI response:", parseError);
-      console.error("Response content:", escapedContent);
-      throw new Error("Invalid response format from OpenAI");
+      solution = JSON.parse(completionText);
+      if (!solution.test_categories) {
+        throw new Error("Invalid solution format");
+      }
+    } catch (e) {
+      console.error("Error parsing solution:", e, "Content:", completionText);
+      throw new Error("Failed to generate valid solution");
     }
 
-    return new Response(JSON.stringify({ result }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
+    return NextResponse.json({
+      success: true,
+      result: solution,
     });
   } catch (error) {
-    console.error("Error in test runner:", error);
-    return new Response(
-      JSON.stringify({
-        error: "Error processing request",
-        details: error instanceof Error ? error.message : "Unknown error",
-      }),
+    console.error("Error generating tests:", error);
+    return NextResponse.json(
       {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to generate tests",
+      },
+      { status: 500 }
     );
   }
-}
+} 

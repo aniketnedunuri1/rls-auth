@@ -1,7 +1,7 @@
 // src/pages/SchemaPage.tsx
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { debounce } from "lodash"
@@ -38,6 +38,7 @@ interface TestCase {
   description: string
   query?: string
   expected?: TestExpectedOutcome
+  role: 'ANONYMOUS' | 'AUTHENTICATED'
 }
 
 interface TestCategory {
@@ -78,7 +79,7 @@ export default function SchemaPage() {
   const [runningSuites, setRunningSuites] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeProvider, setActiveProvider] = useState<string | null>(null)
-  const [selectedRole, setSelectedRole] = useState("anon")
+  const [selectedRole, setSelectedRole] = useState<'ANONYMOUS' | 'AUTHENTICATED'>('ANONYMOUS');
   const router = useRouter()
   const [editedQueries, setEditedQueries] = useState<Record<string, string>>({});
 
@@ -174,35 +175,64 @@ export default function SchemaPage() {
 
     setIsGenerating(true);
     try {
-      const response = await fetch("/api/test-runner", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          schema: selectedProject.dbSchema,
-          rlsPolicies: selectedProject.rlsSchema,
-          additionalContext: selectedProject.additionalContext
-        }),
-      });
+        console.log('Generating tests for role:', selectedRole);
+        const endpoint = selectedRole === 'ANONYMOUS' 
+            ? "/api/generate-query/anon"
+            : "/api/generate-query/authenticated-anon";
 
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (data.result && data.result.test_categories) {
-        dispatch(setTestCategories(data.result.test_categories));
-        // Save the generated tests
-        await saveTestResults({
-          projectId: selectedProject.id,
-          categories: data.result.test_categories
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                schema: selectedProject.dbSchema,
+                rlsPolicies: selectedProject.rlsSchema,
+                additionalContext: selectedProject.additionalContext
+            }),
         });
-      }
+
+        if (!response.ok) {
+            throw new Error(`Request failed`);
+        }
+
+        const data = await response.json();
+        console.log('Received test data:', data.result?.test_categories);
+        
+        // Ensure each test has required properties
+        const categoriesWithRole = data.result?.test_categories.map((category: any) => ({
+            ...category,
+            tests: category.tests.map((test: any) => ({
+                ...test,
+                id: test.id || crypto.randomUUID(), // Ensure each test has an ID
+                role: selectedRole,
+                categoryId: category.id,
+                query: test.query || '',
+                expected: test.expected || null
+            }))
+        }));
+
+        console.log('Saving categories:', categoriesWithRole);
+
+        // Save new tests to database first
+        const saveResult = await saveTestResults({
+            projectId: selectedProject.id,
+            categories: categoriesWithRole
+        });
+
+        if (!saveResult.success) {
+            console.error('Failed to save tests:', saveResult.error);
+            return;
+        }
+
+        // After successful save, load all tests from database
+        const loadResult = await loadTestResults(selectedProject.id);
+        if (loadResult.success) {
+            dispatch(setTestCategories(loadResult.categories));
+        }
+
     } catch (error) {
-      console.error("Error calling /api/test-runner:", error);
+        console.error("Error generating tests:", error);
     } finally {
-      setIsGenerating(false);
+        setIsGenerating(false);
     }
   };
 
@@ -291,29 +321,51 @@ export default function SchemaPage() {
   };
 
   const runTest = async (testId: string, userQuery: string | undefined) => {
-    if (!selectedProject?.id || !userQuery) return;
+    if (!selectedProject?.id || !userQuery) {
+        console.log('Missing required data:', { projectId: selectedProject?.id, userQuery });
+        return;
+    }
 
     if (!selectedProject.supabaseUrl || !selectedProject.supabaseAnonKey) {
-        console.error("Missing Supabase configuration");
+        console.log('Missing Supabase configuration');
         return;
     }
   
     // Set loading state
     setRunningTests(prev => new Set(prev).add(testId));
-  
+
     try {
         const queryToRun = editedQueries[testId] ?? userQuery;
+        
+        // Use role-specific endpoint
+        const endpoint = selectedRole === 'ANONYMOUS'
+            ? "/api/run-test/anon"
+            : "/api/run-test/authenticated-anon";
 
-        const response = await fetch("/api/run-test", {
+        console.log('Sending request to:', endpoint, {
+            query: queryToRun,
+            url: selectedProject.supabaseUrl,
+            hasAnonKey: !!selectedProject.supabaseAnonKey
+        });
+
+        const response = await fetch(endpoint, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache"
+            },
+            cache: 'no-store',
             body: JSON.stringify({
                 query: queryToRun,
                 url: selectedProject.supabaseUrl,
-                anonKey: selectedProject.supabaseAnonKey,
-                role: selectedRole
+                anonKey: selectedProject.supabaseAnonKey
             }),
         });
+
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        }
   
         const result = await response.json();
         console.log('Test result:', result);
@@ -344,12 +396,12 @@ export default function SchemaPage() {
                     result: testResult
                 }));
 
-                // Save to database
+                // Save the entire test state to database
                 await saveTestResults({
                     projectId: selectedProject.id,
-                    categories: testCategories.map(category => ({
-                        ...category,
-                        tests: category.tests.map(t => 
+                    categories: testCategories.map(cat => ({
+                        ...cat,
+                        tests: cat.tests.map(t => 
                             t.id === testId 
                                 ? { ...t, result: testResult }
                                 : t
@@ -439,19 +491,22 @@ export default function SchemaPage() {
 
   useEffect(() => {
     async function loadSavedTests() {
-      console.log('loadSavedTests called, selectedProject:', selectedProject);
-      
-      if (!selectedProject?.id) {
-        console.log('No selected project id, skipping load');
-        return;
-      }
-      
-      const result = await loadTestResults(selectedProject.id);
-      console.log('loadTestResults result:', result);
-      
-      if (result.success && Array.isArray(result.categories)) {
-        dispatch(setTestCategories(result.categories));
-      }
+        if (!selectedProject?.id) {
+            // Clear tests when no project is selected
+            dispatch(setTestCategories([]));
+            return;
+        }
+        
+        const result = await loadTestResults(selectedProject.id);
+        
+        if (result.success) {
+            // Ensure we're setting an empty array if no categories
+            dispatch(setTestCategories(result.categories || []));
+        } else {
+            // Clear tests on error
+            dispatch(setTestCategories([]));
+            console.error('Failed to load test results:', result.error);
+        }
     }
     
     loadSavedTests();
@@ -471,6 +526,16 @@ export default function SchemaPage() {
       setEditedQueries(initialQueries);
     }
   }, [testCategories]);
+
+  // Filter tests based on selected role
+  const filteredTestCategories = useMemo(() => {
+    return testCategories.map(category => ({
+      ...category,
+      tests: category.tests.filter(test => 
+        test.role === selectedRole
+      )
+    })).filter(category => category.tests.length > 0);
+  }, [testCategories, selectedRole]);
 
   return (
     <div className="h-screen flex">
@@ -632,12 +697,21 @@ export default function SchemaPage() {
 
               <ScrollArea className="h-[calc(100vh-200px)]">
                 <div className="space-y-4 pr-4">
-                  {testCategories.map((category) => (
+                  {filteredTestCategories.map((category) => (
                     <Card key={category.id}>
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-4">
                           <div>
-                            <h3 className="text-lg font-semibold">{category.name}</h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-lg font-semibold">{category.name}</h3>
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                selectedRole === 'ANONYMOUS' 
+                                  ? 'bg-gray-100 text-gray-700' 
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {selectedRole === 'ANONYMOUS' ? 'Anon' : 'Auth'}
+                              </span>
+                            </div>
                             <p className="text-sm text-muted-foreground">{category.description}</p>
                           </div>
                           <Button 

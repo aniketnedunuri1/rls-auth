@@ -17,7 +17,10 @@ export interface TestCase {
   expected?: ExpectedOutcome;
   categoryId: string;
   result?: TestResult;
-  solution?: string;
+  solution?: {
+    description: string;
+    query: string;
+  } | string;  // Can be either an object or a stringified JSON
   role?: 'ANONYMOUS' | 'AUTHENTICATED';
 }
 

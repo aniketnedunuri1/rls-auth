@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,7 +19,6 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isEmailSent, setIsEmailSent] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -41,8 +39,12 @@ export default function RegisterPage() {
       if (result?.emailSent) {
         setIsEmailSent(true);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (_err: unknown) {
+      if (_err instanceof Error) {
+        setError(_err.message);
+      } else {
+        setError("An unexpected error occurred.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +60,7 @@ export default function RegisterPage() {
             </div>
             <CardTitle className="text-center">Check your email</CardTitle>
             <CardDescription className="text-center">
-              We've sent you a verification link to complete your registration
+              We&apos;ve sent you a verification link to complete your registration
             </CardDescription>
           </CardHeader>
           <CardFooter className="flex justify-center">

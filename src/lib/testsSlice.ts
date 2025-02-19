@@ -1,12 +1,11 @@
 // src/lib/testsSlice.ts
-import { createSlice, PayloadAction, createAction } from "@reduxjs/toolkit";
-import { saveTestResults, loadTestResults } from '@/lib/actions/tests';
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export interface ExpectedOutcome {
-  data?: any;
+  data?: unknown;
   status?: "pending" | "passed" | "failed" | "error";
   statusText?: string;
-  error?: any;
+  error?: unknown;
 }
 
 export interface TestCase {
@@ -21,7 +20,7 @@ export interface TestCase {
     description: string;
     query: string;
   } | string;  // Can be either an object or a stringified JSON
-  role?: 'ANONYMOUS' | 'AUTHENTICATED';
+  role?: "ANONYMOUS" | "AUTHENTICATED";
 }
 
 export interface TestCategory {
@@ -36,10 +35,10 @@ interface TestsState {
 }
 
 export interface TestResult {
-  status: 'passed' | 'failed';
-  data: any;
-  error: any;
-  response: any;
+  status: "passed" | "failed";
+  data: unknown;
+  error: unknown;
+  response: unknown;
 }
 
 interface UpdateTestCaseResultPayload {
@@ -72,10 +71,10 @@ export const testsSlice = createSlice({
         const testCase = category.tests.find((test) => test.id === testCaseId);
         if (testCase) {
           testCase.result = {
-            status: result.status === 'passed' ? 'passed' : 'failed',
+            status: result.status === "passed" ? "passed" : "failed",
             data: result.data,
             error: result.error,
-            response: result.response
+            response: result.response,
           };
         }
       }
@@ -102,9 +101,9 @@ export const testsSlice = createSlice({
       }>
     ) => {
       const { categoryId, testId, query } = action.payload;
-      const category = state.categories.find(c => c.id === categoryId);
+      const category = state.categories.find((c) => c.id === categoryId);
       if (category) {
-        const test = category.tests.find(t => t.id === testId);
+        const test = category.tests.find((t) => t.id === testId);
         if (test) {
           test.query = query;
         }

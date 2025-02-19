@@ -18,22 +18,22 @@ interface ResultsClientProps {
   projectId: string;
 }
 
-interface Solution {
-  description: string;
-  query: string;
-  schema?: string;
-}
+// interface Solution {
+//   description: string;
+//   query: string;
+//   schema?: string;
+// }
 
-interface TestSolution {
-  description: string;
-  query: string;
-}
+// interface TestSolution {
+//   description: string;
+//   query: string;
+// }
 
-interface APIResponse {
-  success: boolean;
-  error?: string;
-  solution?: TestSolution;
-}
+// interface APIResponse {
+//   success: boolean;
+//   error?: string;
+//   solution?: TestSolution;
+// }
 
 export function ResultsClient({ projectId }: ResultsClientProps) {
   const router = useRouter();
@@ -145,7 +145,7 @@ export function ResultsClient({ projectId }: ResultsClientProps) {
   const handleFixAllTests = async () => {
     setIsFixing(true);
     try {
-      let allTests: any[] = [];
+      let allTests: TestCase[] = [];
       testCategories.forEach(category => {
         allTests = allTests.concat(category.tests);
       });

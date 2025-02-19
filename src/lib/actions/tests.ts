@@ -3,7 +3,7 @@
 import { getUser } from './auth';
 import { TestCategory, TestCase, ExpectedOutcome, TestResult } from '@/lib/testsSlice';
 import { prisma } from '../prisma';
-import { Prisma, TestRole } from '@prisma/client';
+import { TestRole } from '@prisma/client';
 
 interface SaveTestResultsParams {
   projectId: string;
@@ -27,8 +27,8 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
       for (const test of category.tests) {
         try {
           // Convert role string to TestRole enum
-          const role: TestRole = test.role === 'AUTHENTICATED' 
-            ? TestRole.AUTHENTICATED 
+          const role: TestRole = test.role === 'AUTHENTICATED'
+            ? TestRole.AUTHENTICATED
             : TestRole.ANONYMOUS;
 
           const testData = {
@@ -68,24 +68,25 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
     console.error('Error in saveTestResults:', {
       message: error instanceof Error ? error.message : 'Unknown error'
     });
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 }
 
-// Add type guard to check if a value is a TestResult
-function isTestResult(value: any): value is TestResult {
-  return (
-    value &&
-    typeof value === 'object' &&
-    'status' in value &&
-    'data' in value &&
-    'error' in value &&
-    'response' in value &&
-    (value.status === 'passed' || value.status === 'failed')
-  );
+// Define a type for tests returned from the database.
+interface DbTest {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  name: string;
+  description: string;
+  query?: string | null;
+  expected?: ExpectedOutcome | null;
+  result?: unknown;
+  role: string;
+  solution?: string | unknown | null;
 }
 
 export async function loadTestResults(projectId: string) {
@@ -101,7 +102,7 @@ export async function loadTestResults(projectId: string) {
     }
 
     // Get all tests for this project, ordered by categoryName and name
-    const tests = await prisma.test.findMany({
+    const tests: DbTest[] = await prisma.test.findMany({
       where: { projectId },
       orderBy: [
         { categoryName: 'asc' },
@@ -121,7 +122,7 @@ export async function loadTestResults(projectId: string) {
     const categoriesMap = new Map<string, TestCategory>();
     const categoryOrder: string[] = [];
     
-    tests.forEach((test: any) => {
+    tests.forEach((test: DbTest) => {
       const categoryId = test.categoryId;
       
       if (!categoriesMap.has(categoryId)) {
@@ -140,8 +141,8 @@ export async function loadTestResults(projectId: string) {
         if (test.result) {
           try {
             // More robust result parsing
-            const resultData = typeof test.result === 'string' 
-              ? JSON.parse(test.result) 
+            const resultData = typeof test.result === 'string'
+              ? JSON.parse(test.result)
               : test.result;
             
             // Ensure we have all required fields
@@ -166,8 +167,8 @@ export async function loadTestResults(projectId: string) {
           expected: test.expected as ExpectedOutcome,
           result: testResult,
           categoryId: test.categoryId,
-          solution: typeof test.solution === 'string' 
-            ? JSON.parse(test.solution) 
+          solution: typeof test.solution === 'string'
+            ? JSON.parse(test.solution)
             : test.solution,
           role: role
         });
@@ -177,16 +178,16 @@ export async function loadTestResults(projectId: string) {
     // Use the categoryOrder to maintain consistent order
     const finalCategories = categoryOrder.map(id => categoriesMap.get(id)!);
     
-    return { 
-      success: true, 
+    return {
+      success: true,
       categories: finalCategories
     };
   } catch (error) {
     console.error('Error in loadTestResults:', error);
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
-      categories: [] 
+      categories: []
     };
   }
 }
@@ -242,9 +243,9 @@ export async function saveSolution(testId: string, solution: string) {
     return { success: true, test: updatedTest };
   } catch (error) {
     console.error('Error in saveSolution:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to save solution' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to save solution'
     };
   }
 } 

@@ -11,7 +11,7 @@ export async function POST(req: Request): Promise<Response> {
 
     // Create a client and sign in anonymously
     const supabase = createClient(url, anonKey);
-    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+    const { error: authError } = await supabase.auth.signInAnonymously();
     if (authError) {
       return NextResponse.json({
         success: false,

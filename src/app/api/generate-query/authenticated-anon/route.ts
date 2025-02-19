@@ -10,11 +10,6 @@ const testSuites = [
   "fuzzing",
   "performance-load",
 ];
-
-function buildSuiteInstruction(suites: string[]): string {
-  return suites.map((suite) => `- ${suite}`).join("\n");
-}
-
 /**
  * Modified prompt for strictly anonymous users.
  */

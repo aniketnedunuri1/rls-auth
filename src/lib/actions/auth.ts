@@ -14,9 +14,9 @@ export async function getUser() {
     if (user) {
       // Ensure user exists in Prisma database
       try {
-        const existingUser = await prisma.user.upsert({
+        await prisma.user.upsert({
           where: { id: user.id },
-          update: {}, // no updates needed
+          update: {},
           create: {
             id: user.id,
             email: user.email || '',

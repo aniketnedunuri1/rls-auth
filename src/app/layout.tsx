@@ -3,7 +3,6 @@ import { Inter} from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import ReduxProvider from "@/components/redux-provider"; // ✅ Now Redux runs in a Client Component
-import { store } from "@/lib/store"
 import type React from "react"
 
 

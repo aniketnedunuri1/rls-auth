@@ -26,27 +26,27 @@ import { useRouter } from "next/navigation";
 import { loadTestResults, saveTestResults } from "@/lib/actions/tests";
 
 interface TestExpectedOutcome {
-  data: any;
-  error: any;
+  data: unknown;
+  error: unknown;
   status?: number;
   statusText?: string;
 }
 
-interface TestCase {
-  id: string
-  name: string
-  description: string
-  query?: string
-  expected?: TestExpectedOutcome
-  role: 'ANONYMOUS' | 'AUTHENTICATED'
-}
+// interface TestCase {
+//   id: string
+//   name: string
+//   description: string
+//   query?: string
+//   expected?: TestExpectedOutcome
+//   role: 'ANONYMOUS' | 'AUTHENTICATED'
+// }
 
-interface TestCategory {
-  id: string
-  name: string
-  description: string
-  tests: TestCase[]
-}
+// interface TestCategory {
+//   id: string
+//   name: string
+//   description: string
+//   tests: TestCase[]
+// }
 
 interface DatabaseProvider {
   id: string
@@ -56,9 +56,9 @@ interface DatabaseProvider {
 
 interface TestResult {
     status: 'passed' | 'failed';
-    data: any;
-    error: any;
-    response: any;
+    data: unknown;
+    error: unknown;
+    response: unknown;
 }
 
 const databaseProviders: DatabaseProvider[] = [
@@ -72,8 +72,8 @@ export default function SchemaPage() {
   const dispatch = useDispatch()
   const testCategories = useSelector((state: RootState) => state.tests.categories);
   const selectedProject = useSelector((state: RootState) => state.project.selectedProject);
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
+  const [nodes, onNodesChange] = useNodesState([])
+  const [edges, onEdgesChange] = useEdgesState([])
   const [expandedTests, setExpandedTests] = useState<string[]>([])
   const [runningTests, setRunningTests] = useState<Set<string>>(new Set());
   const [runningSuites, setRunningSuites] = useState<Set<string>>(new Set());

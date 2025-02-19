@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Database, Play, FileText } from "lucide-react";
+import { LayoutDashboard, Database, FileText } from "lucide-react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/lib/store";
 import ProjectSelector from "./project-selector";

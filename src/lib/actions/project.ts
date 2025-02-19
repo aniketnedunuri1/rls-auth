@@ -2,7 +2,7 @@
 "use server";
 
 import { getUser } from './auth';
-import { redirect } from 'next/navigation';
+// import { redirect } from 'next/navigation';
 import { prisma } from '../prisma';  // Import the singleton instance
 
 export async function createProjectAction(formData: FormData): Promise<{ id: string; name: string } | null> {
@@ -86,11 +86,17 @@ export async function updateProjectAction(
     });
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating project:", error);
+    if (error instanceof Error) {
+      return { 
+        success: false, 
+        error: error.message
+      };
+    }
     return { 
       success: false, 
-      error: error.message || "Failed to update project" 
+      error: "Failed to update project" 
     };
   }
 }

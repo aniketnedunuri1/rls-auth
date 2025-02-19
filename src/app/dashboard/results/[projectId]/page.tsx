@@ -1,10 +1,10 @@
 import { ResultsClient } from './results-client';
 
 // Define the expected shape for props.
-// Including searchParams (even if unused) satisfies Next.js's PageProps type.
+// Renaming searchParams to _searchParams signals it's not used.
 export default async function ResultsPage({
   params,
-  searchParams, 
+  searchParams: _searchParams,
 }: {
   params: { projectId: string };
   searchParams: Record<string, string | string[]>;

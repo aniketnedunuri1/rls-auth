@@ -41,7 +41,7 @@ export default function LoginPage() {
       
       // Don't reset loading state here - let it show while navigating
       router.push("/dashboard");
-    } catch (_err: unknown) {
+    } catch {
       // If the loginAction throws an error, update the error state.
       setError("Username or password incorrect.");
       setIsLoading(false); // Only reset loading on error

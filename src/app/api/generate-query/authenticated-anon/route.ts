@@ -2,14 +2,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
 // The test suite names we want to cover in one shot:
-const testSuites = [
-  "authentication-privilege-tests",
-  "rls-security",
-  "sql-injection",
-  "row-based-access",
-  "fuzzing",
-  "performance-load",
-];
+
 /**
  * Modified prompt for strictly anonymous users.
  */
@@ -19,8 +12,6 @@ function generateLLMPrompt(
   additionalContext: string,
   testSuites: string[]
 ): string {
-  const suiteList = testSuites.map((suite) => `- ${suite}`).join("\n");
-
   return `
 Context:
 Database Schema:
@@ -221,7 +212,7 @@ export async function POST(request: Request): Promise<Response> {
       schema,
       rlsPolicies,
       additionalContext || "",
-      testSuites
+      []
     );
 
     // System instructions remain identical.

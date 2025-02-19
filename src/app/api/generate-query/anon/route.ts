@@ -2,14 +2,6 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
 // The test suite names we want to cover in one shot:
-const testSuites = [
-  "authentication-privilege-tests",
-  "rls-security",
-  "sql-injection",
-  "row-based-access",
-  "fuzzing",
-  "performance-load",
-];
 
 /**
  * Modified prompt for strictly anonymous users.
@@ -20,8 +12,6 @@ function generateLLMPrompt(
   additionalContext: string,
   testSuites: string[]
 ): string {
-  const suiteList = testSuites.map((suite) => `- ${suite}`).join("\n");
-
   return `
 Context:
 Database Schema:
@@ -33,8 +23,6 @@ ${rls}
 User Description:
 ${additionalContext}
 
-Test Suite:
-${suiteList}
 
 Task:
 Using the provided information, generate a JSON object that defines a comprehensive suite of tests for the user's database from an anonymous user's perspective.

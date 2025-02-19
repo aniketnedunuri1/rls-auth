@@ -54,6 +54,11 @@ interface DatabaseProvider {
   logo: string
 }
 
+interface TestResponse {
+  data: unknown;
+  error: { code?: string; message?: string } | null;
+}
+
 interface TestResult {
     status: 'passed' | 'failed';
     data: unknown;
@@ -236,7 +241,11 @@ export default function SchemaPage() {
     }
   };
 
-  const compareResults = (expected: TestExpectedOutcome | undefined, actual: any, query: string): boolean => {
+  const compareResults = (
+    expected: TestExpectedOutcome | undefined,
+    actual: TestResponse,
+    query: string
+  ): boolean => {
     if (!expected) {
         return false;
     }
@@ -265,10 +274,8 @@ export default function SchemaPage() {
 
     // For SELECT queries
     if (isSelectQuery) {
-        // When access is blocked or no data is available
         if (Array.isArray(expected.data) && expected.data.length === 0) {
             return (
-                // Accept both empty array and null for data
                 (actual.error === null && Array.isArray(actual.data) && actual.data.length === 0) ||
                 (actual.error === null && actual.data === null)
             );
@@ -277,42 +284,35 @@ export default function SchemaPage() {
 
     // For UPDATE/DELETE queries
     if (isUpdateQuery || isDeleteQuery) {
-        // Check if the query has a WHERE clause
         const hasWhereClause = query.includes('.eq(') || 
                               query.includes('.match(') || 
                               query.includes('.filter(') ||
                               query.includes('.where(');
         
         if (!hasWhereClause) {
-            // Should expect a "missing WHERE clause" error
-            return actual.error?.code === "21000" ||  // Missing WHERE clause
+            return actual.error?.code === "21000" || 
                    actual.error?.message?.includes("requires a WHERE clause");
         }
 
-        // If we expect an RLS error
-        if (expected.error?.code === "42501") {
+        if (expected.error && (expected.error as any).code === "42501") {
             return (
-                actual.error?.code === "42501" || // RLS violation
-                actual.error?.code === "21000" || // Missing WHERE clause
-                (actual.error === null && actual.data === null) // No rows affected
+                actual.error?.code === "42501" ||
+                actual.error?.code === "21000" ||
+                (actual.error === null && actual.data === null)
             );
         }
     }
 
     // For INSERT queries
-    if (isInsertQuery) {
-        if (expected.error?.code === "42501") {
-            return (
-                actual.error?.code === "42501" || // Explicit RLS violation
-                (actual.error === null && actual.data === null) // Implicit denial
-            );
-        }
-
+    if (isInsertQuery && expected.error && (expected.error as any).code === "42501") {
+        return (
+            actual.error?.code === "42501" ||
+            (actual.error === null && actual.data === null)
+        );
     }
 
-    // Default comparison for other cases
     if (expected.error) {
-        return actual.error?.code === expected.error?.code;
+        return actual.error?.code === (expected.error as any).code;
     }
 
     return !actual.error && 
@@ -367,7 +367,8 @@ export default function SchemaPage() {
             throw new Error(`API request failed: ${response.status} ${response.statusText}`);
         }
   
-        const result = await response.json();
+        // Parse the response, annotating it as TestResponse
+        const result: TestResponse = await response.json();
         console.log('Test result:', result);
 
         const categoryId = testCategories.find((category) =>
@@ -410,7 +411,7 @@ export default function SchemaPage() {
                 });
             }
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error running test:", error);
     } finally {
         // Clear loading state

@@ -1,13 +1,11 @@
 import { ResultsClient } from './results-client';
 
-interface ResultsPageProps {
-  params: { projectId: string };
-  searchParams: Record<string, string | string[]>;
+interface PageProps {
+  params: {
+    projectId: string;
+  };  
 }
 
-export default async function ResultsPage({
-  params,
-  searchParams: _searchParams,
-}: ResultsPageProps): Promise<JSX.Element> {
+export default async function ResultsPage({ params }: PageProps) {  
   return <ResultsClient projectId={params.projectId} />;
 }

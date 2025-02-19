@@ -88,7 +88,13 @@ interface GeneratedTestCategory {
   [key: string]: unknown;
 }
 
-export default function SchemaPage() {
+export default function SchemaPage({
+  params,
+  searchParams: _searchParams,
+}: {
+  params: { projectId: string };
+  searchParams: Record<string, string | string[]>;
+}): JSX.Element {
   const dispatch = useDispatch()
   const testCategories = useSelector((state: RootState) => state.tests.categories);
   const selectedProject = useSelector((state: RootState) => state.project.selectedProject);

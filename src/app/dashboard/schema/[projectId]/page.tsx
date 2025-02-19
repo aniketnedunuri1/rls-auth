@@ -25,38 +25,35 @@ import { updateProjectAction } from "@/lib/actions/project";
 import { useRouter } from "next/navigation";
 import { loadTestResults, saveTestResults } from "@/lib/actions/tests";
 
+// Define a custom type for errors
+interface TestError {
+  code?: string;
+  message?: string;
+}
+
+// Update your expected outcome interface to use TestError instead of any
 interface TestExpectedOutcome {
   data: unknown;
-  error: unknown;
+  error: TestError | null;
   status?: number;
   statusText?: string;
 }
 
-// interface TestCase {
-//   id: string
-//   name: string
-//   description: string
-//   query?: string
-//   expected?: TestExpectedOutcome
-//   role: 'ANONYMOUS' | 'AUTHENTICATED'
-// }
+// Define the response type coming from the test API
+interface TestResponse {
+  data: unknown;
+  error: TestError | null;
+}
 
-// interface TestCategory {
-//   id: string
-//   name: string
-//   description: string
-//   tests: TestCase[]
-// }
+// A type guard to narrow unknown errors to TestError
+function isTestError(error: unknown): error is TestError {
+  return typeof error === "object" && error !== null && "code" in error;
+}
 
 interface DatabaseProvider {
   id: string
   name: string
   logo: string
-}
-
-interface TestResponse {
-  data: unknown;
-  error: { code?: string; message?: string } | null;
 }
 
 interface TestResult {

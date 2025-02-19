@@ -10,7 +10,6 @@ function generateLLMPrompt(
   schema: string,
   rls: string,
   additionalContext: string,
-  testSuites: string[]
 ): string {
   return `
 Context:
@@ -204,25 +203,20 @@ The JSON output must follow this structure:
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    // Extract the necessary parameters from the request.
     console.log("Received request to generate tests");
     const { schema, rlsPolicies, additionalContext } = await request.json();
-    // Build the prompt using the helper function.
     const prompt = generateLLMPrompt(
       schema,
       rlsPolicies,
-      additionalContext || "",
-      []
+      additionalContext || ""
     );
 
-    // System instructions remain identical.
     const systemPrompt =
       "You are a malicious database penetration tester. Follow the instructions exactly to generate a strict JSON object. Do not output any extra text.";
 
     // Anthropic requires a "\n\nHuman:" turn after the optional system prompt.
     const userContent = "\n\nHuman:" + prompt;
 
-    // Initialize the Anthropic client with your API key.
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
     const msg = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20241022",
@@ -244,7 +238,6 @@ export async function POST(request: Request): Promise<Response> {
 
     console.log("Anthropic API response:", msg);
 
-    // Extract the completion text from the first element in the content array.
     const completionText = msg.content && msg.content[0] ? msg.content[0].text : "";
     if (!completionText || completionText.trim().length === 0) {
       console.log("Completion content is empty:", msg);

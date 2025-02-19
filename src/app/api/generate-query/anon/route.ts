@@ -9,8 +9,7 @@ import Anthropic from "@anthropic-ai/sdk";
 function generateLLMPrompt(
   schema: string,
   rls: string,
-  additionalContext: string,
-  testSuites: string[]
+  additionalContext: string
 ): string {
   return `
 Context:
@@ -211,8 +210,7 @@ export async function POST(request: Request): Promise<Response> {
     const prompt = generateLLMPrompt(
       schema,
       rlsPolicies,
-      additionalContext || "",
-      testSuites
+      additionalContext || ""
     );
 
     // System instructions remain identical.

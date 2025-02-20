@@ -121,16 +121,20 @@ export async function fetchProjects(): Promise<{
 
   const projects = await prisma.project.findMany({
     where: { userId: user.id },
-    select: { 
-      id: true, 
+    select: {
+      id: true,
       name: true,
       dbSchema: true,
       rlsSchema: true,
-      additionalContext: true, // Prisma returns `string | null`
+      additionalContext: true,
       supabaseUrl: true,
       supabaseAnonKey: true,
     },
-  });
+  }).then(projects => projects.map(project => ({
+    ...project,
+    dbSchema: project.dbSchema || '',    // Convert null to empty string
+    rlsSchema: project.rlsSchema || '',  // Convert null to empty string
+  })));
 
   // Fetch the selected project ID from the database
   const userData = await prisma.user.findUnique({

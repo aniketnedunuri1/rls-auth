@@ -15,6 +15,12 @@ function buildSuiteInstruction(suites: string[]): string {
   return suites.map((suite) => `- ${suite}`).join("\n");
 }
 
+// Add type for the content block
+interface ContentBlock {
+  type: string;
+  text?: string;
+}
+
 /**
  * Modified prompt for strictly anonymous users.
  */
@@ -260,8 +266,8 @@ export async function POST(request: Request): Promise<Response> {
 
     console.log("Anthropic API response:", msg);
 
-    // Extract the completion text from the first element in the content array.
-    const completionText = msg.content && msg.content[0] ? msg.content[0].text : "";
+    // Extract the completion text with type checking
+    const completionText = msg.content?.[0]?.type === 'text' ? msg.content[0].text : "";
     if (!completionText || completionText.trim().length === 0) {
       console.log("Completion content is empty:", msg);
       throw new Error("No solution generated");

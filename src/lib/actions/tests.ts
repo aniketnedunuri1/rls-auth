@@ -26,23 +26,26 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
       
       for (const test of category.tests) {
         try {
-          // Convert role string to TestRole enum
           const role: TestRole = test.role === 'AUTHENTICATED' 
             ? TestRole.AUTHENTICATED 
             : TestRole.ANONYMOUS;
 
-          const testData = {
+          const testData: Prisma.TestCreateInput = {
             id: test.id,
-            projectId,
+            project: { connect: { id: projectId } },
             categoryId: category.id,
             categoryName: category.name,
             name: test.name,
             description: test.description || '',
             query: test.query || '',
-            expected: test.expected || null,
-            result: test.result || null,
+            expected: test.expected as unknown as Prisma.InputJsonValue,
+            result: test.result 
+              ? JSON.parse(JSON.stringify(test.result)) as Prisma.InputJsonValue 
+              : Prisma.JsonNull,
             role,
-            solution: test.solution || null
+            solution: test.solution 
+              ? JSON.parse(JSON.stringify(test.solution)) as Prisma.InputJsonValue
+              : Prisma.JsonNull
           };
 
           await prisma.test.upsert({
@@ -51,7 +54,6 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
             update: testData,
           });
         } catch (testError) {
-          // Safe error logging without circular references
           console.error('Error saving test:', {
             testId: test.id,
             testName: test.name,
@@ -64,7 +66,6 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
 
     return { success: true };
   } catch (error) {
-    // Safe error logging for top-level errors
     console.error('Error in saveTestResults:', {
       message: error instanceof Error ? error.message : 'Unknown error'
     });

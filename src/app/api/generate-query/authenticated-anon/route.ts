@@ -11,6 +11,12 @@ const testSuites = [
   "performance-load",
 ];
 
+// Add type for the content block
+interface ContentBlock {
+  type: string;
+  text?: string;
+}
+
 function buildSuiteInstruction(suites: string[]): string {
   return suites.map((suite) => `- ${suite}`).join("\n");
 }
@@ -78,7 +84,6 @@ SCHEMA-SPECIFIC RULES:
 - Only use columns that exist in the provided schema
 - Do not assume existence of columns, if a column is not in the schema, do not use it in your queries
 - Focus on basic CRUD operations without filters
-
 
 EXPECTED RESPONSE FORMATS:
 
@@ -188,7 +193,7 @@ REQUIREMENTS:
 3. Each table must have at least 5 unique test cases
 4. All queries must be executable with only anon key
 5. All queries must be unique and not repeat the same pattern, and they must be a full comprehensive test of the RLS policies and schema. Continue to generate unique queries until you have enough unique tests for each table.
-6. All tests must be from anonymous authenticateduser perspective
+6. All tests must be from anonymous authenticated user perspective
 7. Focus on RLS policy enforcement
 8. Output must be valid JSON
 9. Tests must respect table relationships and foreign key constraints
@@ -258,8 +263,8 @@ export async function POST(request: Request): Promise<Response> {
 
     console.log("Anthropic API response:", msg);
 
-    // Extract the completion text from the first element in the content array.
-    const completionText = msg.content && msg.content[0] ? msg.content[0].text : "";
+    // Extract the completion text with type checking
+    const completionText = msg.content?.[0]?.type === 'text' ? msg.content[0].text : "";
     if (!completionText || completionText.trim().length === 0) {
       console.log("Completion content is empty:", msg);
       throw new Error("No solution generated");

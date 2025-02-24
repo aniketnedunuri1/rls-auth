@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 import { Check, ChevronDown } from "lucide-react";
 
 type RoleSelectorProps = {
-  role: 'ANONYMOUS' | 'AUTHENTICATED';
-  setRole: (role: 'ANONYMOUS' | 'AUTHENTICATED') => void;
+  role: 'ANONYMOUS' | 'AUTHENTICATED' | 'MULTI_USER';
+  setRole: (role: 'ANONYMOUS' | 'AUTHENTICATED' | 'MULTI_USER') => void;
 };
 
 const roles = [
@@ -21,6 +21,11 @@ const roles = [
     name: 'authenticated', 
     description: "For logged-in users with standard permissions." 
   },
+  { 
+    id: 'MULTI_USER' as const, 
+    name: 'multi-user', 
+    description: "For testing across multiple user roles and permissions." 
+  }
 ];
 
 export default function RoleSelector({ role, setRole }: RoleSelectorProps) {

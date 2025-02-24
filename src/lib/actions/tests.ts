@@ -26,9 +26,17 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
       
       for (const test of category.tests) {
         try {
-          const role: TestRole = test.role === 'AUTHENTICATED' 
-            ? TestRole.AUTHENTICATED 
-            : TestRole.ANONYMOUS;
+          let role: TestRole;
+          switch(test.role) {
+            case 'MULTI_USER':
+              role = TestRole.MULTI_USER;
+              break;
+            case 'AUTHENTICATED':
+              role = TestRole.AUTHENTICATED;
+              break;
+            default:
+              role = TestRole.ANONYMOUS;
+          }
 
           const testData: Prisma.TestCreateInput = {
             id: test.id,
@@ -45,6 +53,9 @@ export async function saveTestResults({ projectId, categories }: SaveTestResults
             role,
             solution: test.solution 
               ? JSON.parse(JSON.stringify(test.solution)) as Prisma.InputJsonValue
+              : Prisma.JsonNull,
+            multiUserResults: test.role === 'MULTI_USER' && test.roleResults
+              ? JSON.parse(JSON.stringify(test.roleResults)) as Prisma.InputJsonValue
               : Prisma.JsonNull
           };
 

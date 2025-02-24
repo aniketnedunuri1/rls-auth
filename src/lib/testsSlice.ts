@@ -63,7 +63,14 @@ export const testsSlice = createSlice({
   initialState,
   reducers: {
     setTestCategories: (state, action: PayloadAction<TestCategory[]>) => {
-      state.categories = action.payload;
+      state.categories = action.payload.map(category => ({
+        ...category,
+        tests: category.tests.map(test => ({
+          ...test,
+          role: test.role || test.expected?.context?.role || 'ANONYMOUS'
+        }))
+      }));
+      console.log('Updated state categories:', state.categories);
     },
     updateTestCaseResult: (state, action: PayloadAction<UpdateTestCaseResultPayload>) => {
       const { categoryId, testCaseId, result } = action.payload;
@@ -71,12 +78,7 @@ export const testsSlice = createSlice({
       if (category) {
         const testCase = category.tests.find((test) => test.id === testCaseId);
         if (testCase) {
-          testCase.result = {
-            status: result.status === 'passed' ? 'passed' : 'failed',
-            data: result.data,
-            error: result.error,
-            response: result.response
-          };
+          testCase.result = result;
         }
       }
     },

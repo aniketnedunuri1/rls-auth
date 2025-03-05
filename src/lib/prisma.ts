@@ -1,12 +1,21 @@
 import { PrismaClient } from '@prisma/client'
 
-// Define a global type that includes our prisma instance
-const globalForPrisma = global as unknown as { prisma: PrismaClient }
+const prismaClientSingleton = () => {
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.NODE_ENV === 'development' 
+          ? process.env.DATABASE_URL
+          : process.env.DATABASE_URL
+      }
+    }
+  })
+}
 
-// Create the instance if it doesn't exist, or reuse the existing one
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient()
+declare global {
+  var prisma: undefined | ReturnType<typeof prismaClientSingleton>
+}
 
-// In development, save the instance to the global object
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma 
+export const prisma = globalThis.prisma ?? prismaClientSingleton()
+
+if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma 

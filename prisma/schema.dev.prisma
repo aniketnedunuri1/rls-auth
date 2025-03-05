@@ -13,6 +13,7 @@ datasource db {
 model User {
   id         String    @id @default(uuid())
   email      String    @unique
+  subscription_status String? @default("free")
   projects   Project[]
   selectedProjectId String?
   createdAt  DateTime  @default(now())

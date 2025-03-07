@@ -13,7 +13,9 @@ datasource db {
 model User {
   id         String    @id @default(uuid())
   email      String    @unique
-  subscription_status String? @default("free")
+  subscriptionStatus String? @default("free")
+  subscriptionExpiry DateTime?
+  stripeCustomerId String?
   projects   Project[]
   selectedProjectId String?
   createdAt  DateTime  @default(now())

@@ -164,7 +164,7 @@ export default function BillingPage() {
             <CardDescription>Full access to all features</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">$19<span className="text-sm font-normal">/month</span></p>
+            <p className="text-3xl font-bold">$15<span className="text-sm font-normal">/month</span></p>
             <ul className="mt-4 space-y-2">
               <li>✅ Generate anonymous role tests</li>
               <li>✅ Run anonymous role tests</li>

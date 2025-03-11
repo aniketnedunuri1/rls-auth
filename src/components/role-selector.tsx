@@ -48,11 +48,10 @@ export default function RoleSelector({ role, setRole }: RoleSelectorProps) {
 
   const handleRoleChange = (newRole: 'ANONYMOUS' | 'AUTHENTICATED') => {
     if (newRole === 'AUTHENTICATED' && !hasSubscription) {
-      toast({
-        title: "Subscription Required",
-        description: "You need a subscription to use authenticated role tests.",
-        variant: "destructive",
-      });
+      // toast({
+      //   description: "Subscription Required: You need a subscription to use authenticated role tests.",
+      //   variant: "destructive",
+      // });
       router.push('/dashboard/billing');
       return;
     }

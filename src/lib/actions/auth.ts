@@ -8,26 +8,29 @@ import { prisma } from '../prisma';
 export async function getUser() {
     const supabase = await createServerSupabaseClient();
     const {
-      data: { user },
+      data: { user: supabaseUser },
     } = await supabase.auth.getUser();
     
-    if (user) {
+    if (supabaseUser) {
       // Ensure user exists in Prisma database
       try {
-        const existingUser = await prisma.user.upsert({
-          where: { id: user.id },
+        const dbUser = await prisma.user.upsert({
+          where: { id: supabaseUser.id },
           update: {}, // no updates needed
           create: {
-            id: user.id,
-            email: user.email || '',
+            id: supabaseUser.id,
+            email: supabaseUser.email || '',
           },
         });
+        
+        // Return the complete user record from the database
+        return dbUser;
       } catch (error) {
         console.error("Error syncing user to database:", error);
       }
     }
     
-    return user;
+    return null;
 }
 
 /**

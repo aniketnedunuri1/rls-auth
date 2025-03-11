@@ -5,7 +5,20 @@ import type { NextRequest } from 'next/server'
 // Paths that don't require authentication
 const publicPaths = ['/', '/login', '/register']
 
+// API paths that don't require authentication
+const publicApiPaths = ['/api/stripe/webhook']
+
 export async function middleware(request: NextRequest) {
+  // Check if the path is a public API path
+  const isPublicApiPath = publicApiPaths.some(path => 
+    request.nextUrl.pathname.startsWith(path)
+  )
+  
+  // Skip authentication for public API paths
+  if (isPublicApiPath) {
+    return NextResponse.next()
+  }
+
   // Check if the path is public
   const isPublicPath = publicPaths.some(path => 
     request.nextUrl.pathname === path

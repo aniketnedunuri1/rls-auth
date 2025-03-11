@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Database, Play, FileText } from "lucide-react";
+import { LayoutDashboard, Database, Play, FileText, CreditCard } from "lucide-react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/lib/store";
 import ProjectSelector from "./project-selector";
@@ -34,6 +34,13 @@ export default function DashboardNav() {
           <Button variant="ghost" className="w-full justify-start">
             <FileText className="mr-2 h-4 w-4" />
             Results
+          </Button>
+        </Link>
+
+        <Link href="/dashboard/billing">
+          <Button variant="ghost" className="w-full justify-start">
+            <CreditCard className="mr-2 h-4 w-4" />
+            Billing
           </Button>
         </Link>
       </div>

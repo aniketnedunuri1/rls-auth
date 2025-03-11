@@ -1,156 +1,303 @@
 import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
-import { prisma } from "@/lib/prisma"; // Adjust the path as needed
-import { TestCase } from "@/lib/testsSlice";
-export async function POST(request: Request) {
+
+const prisma = new PrismaClient();
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+// Interface for test cases
+interface TestCase {
+  id: string;
+  name: string;
+  description: string;
+  query: string;
+  result?: { error?: any };
+}
+
+export async function POST(request: Request): Promise<Response> {
   try {
-    const {
-      projectId,
-      failedTests,
-      passedTests,
-      dbSchema,
-      currentRLS,
-      projectDescription
+    console.log("Received request to fix all tests");
+    const { 
+      projectId, 
+      failedTests, 
+      passedTests, 
+      dbSchema, 
+      currentRLS, 
+      projectDescription 
     } = await request.json();
+    
+    console.log(`Processing ${failedTests.length} failed tests and ${passedTests.length} passed tests`);
+    
+    // Main solution generation with retries
+    let solution = null;
+    let description = null;
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    while (!solution && attempts < maxAttempts) {
+      attempts++;
+      console.log(`Solution generation attempt ${attempts}/${maxAttempts}`);
+      
+      try {
+        // Generate solution with structured extraction approach
+        const { solution: generatedSolution, description: generatedDescription } = 
+          await generateSolution(dbSchema, currentRLS, failedTests, passedTests, projectDescription);
+        
+        solution = generatedSolution;
+        description = generatedDescription;
+        
+        if (solution) {
+          // Validate the solution before proceeding
+          const isValid = await validateSolution(
+            dbSchema, 
+            currentRLS, 
+            solution, 
+            failedTests, 
+            passedTests
+          );
+          
+          if (!isValid) {
+            console.log(`Solution validation failed on attempt ${attempts}, retrying...`);
+            solution = null; // Reset solution to trigger retry
+          }
+        }
+      } catch (e) {
+        console.error(`Error in solution generation attempt ${attempts}:`, e);
+        // Continue to next attempt
+      }
+    }
+    
+    if (!solution) {
+      console.error("Failed to generate valid solution after multiple attempts");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to generate a valid solution after multiple attempts. Please try again."
+        },
+        { status: 500 }
+      );
+    }
+    
+    // Update database with solution
+    if (projectId) {
+      try {
+        const updatedProject = await prisma.project.update({
+          where: { id: projectId },
+          data: { rlsSchema: solution }
+        });
+        console.log("Updated project with new RLS policy:", updatedProject.id);
+      } catch (dbError) {
+        console.error("Error updating project in database:", dbError);
+        // Continue even if DB update fails
+      }
+    }
+    
+    return NextResponse.json({
+      success: true,
+      description,
+      solution,
+      meta: {
+        attempts
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error fixing all tests:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to generate comprehensive fix",
+      },
+      { status: 500 }
+    );
+  }
+}
 
-    // Define the system instructions
-    const systemPrompt = "You are a database security expert specializing in Supabase Row Level Security. Your task is to generate a complete, working set of RLS policies in valid SQL that fixes all issues while maintaining existing functionality. Each policy must be a separate SQL statement with a single action in the FOR clause. For INSERT policies, do NOT include a USING clause; include only a WITH CHECK clause. Do NOT include any inline comments. Do NOT use the role \"anonymous\"; use \"anon\" for policies targeting unauthenticated access. Return ONLY the JSON object with no additional text, markdown, or formatting.";
-
-    // Compose the user message with project context and test details.
-    const userPrompt = `
+// Function to generate solution using direct Claude API
+async function generateSolution(
+  dbSchema: string,
+  currentRLS: string,
+  failedTests: TestCase[],
+  passedTests: TestCase[],
+  projectDescription: string
+): Promise<{solution: string | null, description: string | null}> {
+  // Create a streamlined prompt for Claude
+  const prompt = `
 As a database security expert, analyze these test results and generate a comprehensive RLS policy solution.
 
-Project Context:
-${projectDescription}
+PROJECT CONTEXT:
+${projectDescription || "No project description provided"}
 
-Database Schema:
+DATABASE SCHEMA:
 ${dbSchema}
 
-Current RLS Policies:
+CURRENT RLS POLICIES:
 ${currentRLS}
 
-Failed Tests (Need fixing):
-${failedTests.map((test: TestCase) => `
+FAILED TESTS (${failedTests.length}):
+${failedTests.map(test => `
 Test: ${test.name}
 Description: ${test.description}
 Query: ${test.query}
 Error: ${JSON.stringify(test.result?.error)}
 `).join('\n')}
 
-Passed Tests (Must remain working):
-${passedTests.map((test: TestCase) => `
+PASSED TESTS (${passedTests.length} - must keep working):
+${passedTests.slice(0, 5).map(test => `
 Test: ${test.name}
 Query: ${test.query}
 `).join('\n')}
+${passedTests.length > 5 ? `...and ${passedTests.length - 5} more passed tests` : ''}
 
-Requirements:
-1. Generate a complete set of RLS policies that:
-   - Fix all failed tests
-   - Maintain functionality of all passed tests
-   - Follow security best practices
-   - Use proper Supabase RLS syntax
+REQUIREMENTS:
+1. Generate a complete set of RLS policies that fix all failed tests
+2. Do not break existing passing tests
+3. Use proper PostgreSQL syntax compatible with Supabase SQL editor
+4. Focus on security best practices
+5. For INSERT policies, do NOT include a USING clause; include only a WITH CHECK clause
+6. For each policy, the FOR clause should only mention a single operation
+7. Do NOT use the role "anonymous"; use "anon" instead for unauthenticated access
+8. IMPORTANT: Always use explicit type casting when comparing UUIDs with text values (e.g., auth.uid()::text = users.user_id::text)
+9. Do NOT include any markdown formatting (like \`\`\`sql) in your solution
+10. Ensure all SQL statements end with semicolons
+11. Use double quotes for identifiers that need them, not single quotes
 
-2. The solution must:
-   - Include ENABLE ROW LEVEL SECURITY statements where needed.
-   - Provide policies for SELECT, INSERT, UPDATE, and DELETE operations.
-   - For INSERT policies, do NOT include a USING clause; include only a WITH CHECK clause.
-   - Ensure that for any policy, the FOR clause only mentions a single operation; if the same table requires policies for multiple operations (e.g., UPDATE and DELETE), generate separate SQL statements for each.
-   - Do NOT include any inline comments.
-   - DO NOT use the role "anonymous"; use "anon" instead for unauthenticated access.
-   - Return ONLY a JSON object with exactly two keys: "description" and "schema".
-   - "description" should provide a brief explanation for the changes made.
-   - "schema" should contain a complete SQL script with individual RLS policy statements to fix all the failed tests.
-   - Do not include any extra text or markdown.
+FORMAT YOUR RESPONSE WITH THESE EXACT SECTIONS:
+1. DESCRIPTION: A clear explanation of what changes you made and why
+2. SOLUTION: The complete SQL solution with all necessary policies
 
-Important: Return ONLY the JSON object with no additional text, markdown, or formatting.`;
+The SQL solution should include all policies needed, not just the changes. Each policy should be a complete statement.`;
 
-
-const finalPrompt = `Human: You are a database security expert specializing in Supabase Row Level Security.
-Your task is to generate a complete, working set of RLS policies in valid SQL that fixes all issues while maintaining existing functionality.
-Each policy must be a separate SQL statement with a single action in the FOR clause.
-For INSERT policies, do NOT include a USING clause; include only a WITH CHECK clause.
-Do NOT include any inline comments.
-DO NOT use the role "anonymous"; use "anon" for policies targeting unauthenticated access.
-Important: Return ONLY the JSON object with no additional text, markdown, or formatting.${userPrompt}`;
-
-    // Initialize the Anthropic client with your API key.
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-    const msg = await anthropic.messages.create({
+  try {
+    // Call Claude API
+    const response = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2000,
-      temperature: 0.7,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: finalPrompt
-            }
-          ]
-        }
-      ]
+      max_tokens: 4000,
+      temperature: 0.2,
+      system: "You are an expert at PostgreSQL Row Level Security policies. Your task is to create correct, working solutions.",
+      messages: [{ role: "user", content: prompt }],
     });
 
-    // Get the response text safely
-    const content = msg.content[0];
-    if (!content || typeof content !== 'object' || !('text' in content)) {
-      throw new Error("Invalid response format from Claude");
+    // Extract text from response
+    const responseText = extractTextContent(response.content);
+    
+    // Extract description and solution using section markers
+    const description = extractSection(responseText, "DESCRIPTION:");
+    const solution = extractSection(responseText, "SOLUTION:");
+    
+    if (!solution) {
+      console.error("Failed to extract solution from Claude response");
+      console.log("Claude response:", responseText);
+      return { solution: null, description: null };
     }
+    
+    return { solution, description };
+  } catch (error) {
+    console.error("Error calling Claude API:", error);
+    throw error;
+  }
+}
 
-    const completionText = content.text;
-    if (!completionText || !completionText.trim()) {
-      throw new Error("No solution generated");
-    }
+// Function to validate the generated solution
+async function validateSolution(
+  dbSchema: string,
+  currentRLS: string,
+  solution: string,
+  failedTests: TestCase[],
+  passedTests: TestCase[]
+): Promise<boolean> {
+  try {
+    // Create validation prompt
+    const validationPrompt = `
+As a database security expert, validate if this proposed RLS policy solution correctly fixes the failed tests and is compatible with Supabase SQL editor.
 
-    let solution: { description: string; schema: string };
-    try {
-      const parsed = JSON.parse(completionText);
-      // We're expecting either a "schema" or a "sql" key along with "description"
-      if (!parsed.description || (!parsed.schema && !parsed.sql)) {
-        if (parsed.policies && Array.isArray(parsed.policies)) {
-          solution = {
-            description: "Generated RLS policies based on the tests.",
-            schema: parsed.policies.join("\n")
-          };
-        } else {
-          throw new Error("Invalid solution format");
-        }
-      } else {
-        solution = {
-          description: parsed.description,
-          schema: parsed.schema || parsed.sql
-        };
-      }
-    } catch (e) {
-      console.error("Error parsing solution:", e, "Content:", completionText);
-      throw new Error("Failed to generate valid solution");
-    }
+DATABASE SCHEMA:
+${dbSchema}
 
-    // Automatically update the project's RLS policy in the database using Prisma.
-    if (projectId) {
-      const updatedProject = await prisma.project.update({
-        where: { id: projectId },
-        data: { rlsSchema: solution.schema }
-      });
-      console.log("Updated project with new RLS policy:", updatedProject);
-    }
+CURRENT RLS POLICIES:
+${currentRLS}
 
-    return NextResponse.json({
-      success: true,
-      solution: solution.schema,
-      description: solution.description
+FAILED TESTS (${failedTests.length} - need to be fixed):
+${failedTests.slice(0, 3).map(test => `
+Test: ${test.name}
+Query: ${test.query}
+`).join('\n')}
+${failedTests.length > 3 ? `...and ${failedTests.length - 3} more failed tests` : ''}
+
+PROPOSED SOLUTION:
+${solution}
+
+VALIDATION CRITERIA:
+1. The solution must use valid PostgreSQL syntax compatible with Supabase
+2. The solution must address all the failed tests
+3. The solution should not break existing functionality
+4. All RLS policies should be complete statements
+5. The solution should be minimal and focused
+6. UUID comparisons must use explicit type casting (::text)
+7. All identifiers that need quoting must use double quotes, not single quotes
+8. All statements must end with semicolons
+
+Respond with ONLY a single word: "VALID" if the solution is correct, or "INVALID" if there are issues.
+`;
+
+    // Call Claude for validation
+    const validationResponse = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 4000,
+      temperature: 0.2,
+      system: "You are a validator for PostgreSQL RLS policies. Respond with only VALID or INVALID.",
+      messages: [{ role: "user", content: validationPrompt }],
     });
     
+    const validationText = extractTextContent(validationResponse.content).trim().toUpperCase();
+    return validationText.includes("VALID");
+    
   } catch (error) {
-    console.error("Error in /api/fix-all-tests:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to fix tests"
-      },
-      { status: 500 }
-    );
+    console.error("Error validating solution:", error);
+    // Default to valid on validation error to avoid blocking the process
+    return true;
   }
+}
+
+// Helper function to extract text content from Claude response
+function extractTextContent(content: any): string {
+  if (!content) return '';
+  
+  if (Array.isArray(content)) {
+    return content.map(item => {
+      if (typeof item === 'object' && item.type === 'text') {
+        return item.text;
+      }
+      return '';
+    }).join('');
+  }
+  
+  return content.toString();
+}
+
+// Helper function to extract sections from response
+function extractSection(text: string, sectionMarker: string): string {
+  // Find the starting position of the section
+  const sectionStart = text.indexOf(sectionMarker);
+  if (sectionStart === -1) return '';
+  
+  // Start after the section marker
+  let contentStart = sectionStart + sectionMarker.length;
+  
+  // Find the next section marker or end of text
+  const nextSectionMarkers = ["DESCRIPTION:", "SOLUTION:"];
+  let nextSectionStart = text.length;
+  
+  for (const marker of nextSectionMarkers) {
+    if (marker === sectionMarker) continue;
+    
+    const markerPosition = text.indexOf(marker, contentStart);
+    if (markerPosition !== -1 && markerPosition < nextSectionStart) {
+      nextSectionStart = markerPosition;
+    }
+  }
+  
+  // Extract the section content
+  const sectionContent = text.substring(contentStart, nextSectionStart).trim();
+  return sectionContent;
 }

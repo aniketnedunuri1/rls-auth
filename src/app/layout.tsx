@@ -10,8 +10,8 @@ import type React from "react"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "RLS Testing SaaS",
-  description: "Automate RLS and database schema testing",
+  title: "Clamp",
+  description: "Automate your RLS and database schema testing",
 }
 
 export const dynamic = 'force-dynamic'

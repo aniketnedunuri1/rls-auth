@@ -98,15 +98,14 @@ export default async function HomePage() {
           
           {/* 3D Visual Element */}
           <div className="relative">
-            <div className="w-full aspect-square relative">
-              <Image
-                src="/cube.png" 
-                alt="3D Security Visualization"
-                width={600}
-                height={600}
-                className="w-full h-full object-contain"
-                priority
-              />
+            <div className="w-full aspect-video relative rounded-xl overflow-hidden border border-white/20 animate-border-travel">
+              <iframe
+                src="https://www.youtube.com/embed/PL4UlcXufAo?autoplay=1&mute=1&loop=1&playlist=PL4UlcXufAo&controls=1"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full border-0"
+                title="Clamp Demo Video"
+              ></iframe>
             </div>
           </div>
         </div>
@@ -126,60 +125,75 @@ export default async function HomePage() {
 
           {/* Process Steps */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-left">
-              <div className="w-12 h-12 rounded-full bg-purple-900/30 border border-purple-700/30 flex items-center justify-center mb-6 text-xl font-bold">1</div>
-              <h3 className="text-xl font-semibold mb-4">Input Your Policies</h3>
-              <p className="text-gray-400">
-                Provide your database schema, RLS policies, and additional context about your application's security requirements.
-              </p>
-            </div>
-            
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-left">
-              <div className="w-12 h-12 rounded-full bg-purple-900/30 border border-purple-700/30 flex items-center justify-center mb-6 text-xl font-bold">2</div>
-              <h3 className="text-xl font-semibold mb-4">Generate Attack Vectors</h3>
-              <p className="text-gray-400">
-                We automatically create test queries that simulate how malicious users might try to bypass your security rules that you can test directly against your database. 
-              </p>
-            </div>
-            
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-left">
-              <div className="w-12 h-12 rounded-full bg-purple-900/30 border border-purple-700/30 flex items-center justify-center mb-6 text-xl font-bold">3</div>
-              <h3 className="text-xl font-semibold mb-4">Get Actionable Results</h3>
-              <p className="text-gray-400">
-                Review failed tests and generate new RLS policies to secure your database. 
-              </p>
-            </div>
+            {[1, 2, 3].map((step, index) => (
+              <div key={index} className="relative group h-full">
+                <div className="relative bg-transparent rounded-xl p-8 text-left border border-white/20 animate-border-travel h-full flex flex-col">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center mb-6 text-xl font-bold">{step}</div>
+                  <h3 className="text-xl font-semibold mb-4">
+                    {step === 1 ? "Input Your Policies" : 
+                     step === 2 ? "Generate Attack Vectors" : 
+                     "Get Actionable Results"}
+                  </h3>
+                  <p className="text-gray-400 flex-grow">
+                    {step === 1 ? "Provide your database schema, RLS policies, and additional context about your application's security requirements." : 
+                     step === 2 ? "We automatically create test queries that simulate how malicious users might try to bypass your security rules that you can test directly against your database." : 
+                     "Review failed tests and generate new RLS policies to secure your database."}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Code Example */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden max-w-4xl mx-auto">
-            <div className="flex items-center px-4 py-2 border-b border-gray-800">
+          <div className="relative bg-[#0c1221] border border-[#1e293b] rounded-xl overflow-hidden max-w-4xl mx-auto animate-border-travel">
+            <div className="flex items-center px-4 py-3 border-b border-[#1e293b] bg-[#0f172a]">
               <div className="flex space-x-2">
-                <div className="w-3 h-3 rounded-full bg-gray-700"></div>
-                <div className="w-3 h-3 rounded-full bg-gray-700"></div>
-                <div className="w-3 h-3 rounded-full bg-gray-700"></div>
+                <div className="w-3 h-3 rounded-full bg-[#64748b]"></div>
+                <div className="w-3 h-3 rounded-full bg-[#64748b]"></div>
+                <div className="w-3 h-3 rounded-full bg-[#64748b]"></div>
               </div>
               <div className="ml-4 flex space-x-4">
-                <span className="text-xs text-gray-400 px-2 py-1 rounded bg-gray-800">RLS Policy</span>
+                <span className="text-xs text-[#94a3b8] px-2 py-1 rounded bg-[#1e293b]">RLS Policy Improvement</span>
               </div>
             </div>
-            <div className="p-6 text-left overflow-x-auto">
-              <pre className="text-sm text-gray-300">
-                <code>{`-- Your RLS policy
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-[#1e293b]">
+              {/* Original Policy */}
+              <div className="p-6 text-left overflow-x-auto">
+                <div className="mb-4 flex items-center">
+                  <div className="w-6 h-6 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mr-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <h3 className="text-sm font-medium text-[#e2e8f0]">Vulnerable Policy</h3>
+                </div>
+                <pre className="text-xs text-[#94a3b8] bg-[#0f172a] p-4 rounded-lg">
+                  <code>{`-- Original RLS policy
 CREATE POLICY "Users can only access their own data"
 ON "public"."profiles"
 FOR ALL
 USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
 
--- Clamp-generated test query that would bypass this policy
-SELECT * FROM profiles 
-WHERE user_id IN (
-  SELECT user_id FROM user_roles 
-  WHERE role = 'admin'
-);
-
--- Clamp-recommended fix
+-- Vulnerability
+-- This policy doesn't account for role-based access
+-- and can be bypassed by users with admin roles`}</code>
+                </pre>
+              </div>
+              
+              {/* Improved Policy */}
+              <div className="p-6 text-left overflow-x-auto bg-[#0a1020]">
+                <div className="mb-4 flex items-center">
+                  <div className="w-6 h-6 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mr-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-sm font-medium text-[#e2e8f0]">Clamp-Improved Policy</h3>
+                </div>
+                <pre className="text-xs text-[#94a3b8] bg-[#0f172a] p-4 rounded-lg">
+                  <code>{`-- Clamp-recommended fix
 CREATE POLICY "Users can only access their own data"
 ON "public"."profiles"
 FOR ALL
@@ -187,7 +201,32 @@ USING (auth.uid() = user_id AND NOT EXISTS (
   SELECT 1 FROM user_roles 
   WHERE user_id = profiles.user_id AND role = 'admin'
 ))
-WITH CHECK (auth.uid() = user_id);`}</code>
+WITH CHECK (auth.uid() = user_id);
+
+-- Security improvement
+-- This policy prevents the role-based bypass
+-- by explicitly checking for admin roles`}</code>
+                </pre>
+              </div>
+            </div>
+            
+            {/* Attack Vector */}
+            <div className="border-t border-[#1e293b] p-6 bg-[#0a1020]">
+              <div className="mb-3 flex items-center">
+                <div className="w-6 h-6 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mr-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-medium text-[#e2e8f0]">Detected Attack Vector</h3>
+              </div>
+              <pre className="text-xs text-[#94a3b8] bg-[#0f172a] p-4 rounded-lg">
+                <code>{`-- Clamp-generated test query that would bypass the original policy
+SELECT * FROM profiles 
+WHERE user_id IN (
+  SELECT user_id FROM user_roles 
+  WHERE role = 'admin'
+);`}</code>
               </pre>
             </div>
           </div>
@@ -211,9 +250,9 @@ WITH CHECK (auth.uid() = user_id);`}</code>
           {/* Feature Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Anonymous Testing Card */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
+            <div className="relative bg-transparent rounded-xl p-8 text-left border border-white/20 animate-border-travel">
               <div className="flex items-center mb-6">
-                <div className="w-12 h-12 rounded-lg bg-gray-800 flex items-center justify-center mr-4">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center mr-4">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
@@ -223,7 +262,7 @@ WITH CHECK (auth.uid() = user_id);`}</code>
               <p className="text-gray-400 mb-6">
                 Test how your database responds to unauthenticated users. Identify if public data is properly protected and if sensitive information is accessible.
               </p>
-              <div className="bg-black rounded-lg p-4 overflow-x-auto">
+              <div className="bg-[#0a1020]/50 rounded-lg p-4 overflow-x-auto">
                 <div className="flex items-center text-sm text-green-500 mb-2">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -240,9 +279,9 @@ WITH CHECK (auth.uid() = user_id);`}</code>
             </div>
 
             {/* Authenticated Testing Card */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
+            <div className="relative bg-transparent rounded-xl p-8 text-left border border-white/20 animate-border-travel">
               <div className="flex items-center mb-6">
-                <div className="w-12 h-12 rounded-lg bg-gray-800 flex items-center justify-center mr-4">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center mr-4">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
@@ -252,7 +291,7 @@ WITH CHECK (auth.uid() = user_id);`}</code>
               <p className="text-gray-400 mb-6">
                 Simulate authenticated users attempting to access data they shouldn't have permission to view, modify, or delete. Test multi-tenant data isolation.
               </p>
-              <div className="bg-black rounded-lg p-4">
+              <div className="bg-[#0a1020]/50 rounded-lg p-4">
                 <div className="flex items-center text-sm text-red-500 mb-2">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -284,27 +323,27 @@ WITH CHECK (auth.uid() = user_id);`}</code>
           </div>
 
           {/* Editor Preview */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden max-w-4xl mx-auto">
-            <div className="flex justify-between items-center px-6 py-3 border-b border-gray-800">
+          <div className="relative bg-transparent border border-white/20 rounded-xl overflow-hidden max-w-4xl mx-auto animate-border-travel">
+            <div className="flex justify-between items-center px-6 py-3 border-b border-white/10 bg-[#0a1020]/50">
               <div className="flex items-center">
-                <button className="px-3 py-1 text-sm text-gray-400 bg-gray-800 rounded-md mr-2">
+                <button className="px-3 py-1 text-sm text-gray-400 bg-[#0a1020] rounded-md mr-2">
                   Test Results
                 </button>
                 <span className="text-gray-400">Vulnerability Report</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-400">3 issues found</span>
-                <button className="px-3 py-1 text-sm bg-gray-800 text-gray-300 rounded-md">
+                <button className="px-3 py-1 text-sm bg-[#0a1020] text-gray-300 rounded-md">
                   Export
                 </button>
-                <button className="px-3 py-1 text-sm bg-white text-black rounded-md">
+                <button className="px-3 py-1 text-sm bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-md">
                   Fix All
                 </button>
               </div>
             </div>
             <div className="p-6 text-left">
               <div className="grid grid-cols-1 gap-4">
-                <div className="bg-black rounded-lg p-4">
+                <div className="bg-[#0a1020]/50 rounded-lg p-4">
                   <div className="flex items-center mb-4">
                     <div className="w-6 h-6 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mr-2">
                       <span className="text-red-500 text-xs">!</span>
@@ -314,7 +353,7 @@ WITH CHECK (auth.uid() = user_id);`}</code>
                   
                   <div className="mb-4">
                     <div className="text-sm text-gray-500 mb-1">Current Policy</div>
-                    <div className="text-gray-300 bg-gray-900/50 p-2 rounded mb-2">
+                    <div className="text-gray-300 bg-[#0f172a]/70 p-2 rounded mb-2">
                       <code>CREATE POLICY "Users can view profiles" ON profiles FOR SELECT USING (true);</code>
                     </div>
                     <div className="text-sm text-gray-400">
@@ -324,7 +363,7 @@ WITH CHECK (auth.uid() = user_id);`}</code>
                   
                   <div className="mb-4">
                     <div className="text-sm text-gray-500 mb-1">Recommended Fix</div>
-                    <div className="text-green-300 bg-gray-900/50 p-2 rounded mb-2">
+                    <div className="text-green-300 bg-[#0f172a]/70 p-2 rounded mb-2">
                       <code>CREATE POLICY "Users can view profiles" ON profiles FOR SELECT USING (auth.uid() = user_id OR is_public = true);</code>
                     </div>
                     <div className="text-sm text-gray-400">
@@ -333,7 +372,7 @@ WITH CHECK (auth.uid() = user_id);`}</code>
                   </div>
                   
                   <div className="flex justify-end">
-                    <button className="px-3 py-1 text-sm bg-purple-600 text-white rounded-md">
+                    <button className="px-3 py-1 text-sm bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-md">
                       Apply Fix
                     </button>
                   </div>
@@ -443,3 +482,4 @@ WITH CHECK (auth.uid() = user_id);`}</code>
     </div>
   );
 }
+

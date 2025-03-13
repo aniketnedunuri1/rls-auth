@@ -15,11 +15,11 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Navigation */}
-      <nav className="flex justify-between items-center py-8 px-6 max-w-7xl mx-auto">
+      <nav className="flex flex-col md:flex-row justify-between items-center py-6 md:py-8 px-4 md:px-6 max-w-7xl mx-auto gap-4 md:gap-0">
         <div className="flex items-center">
-          <span className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">clamp</span>
+          <span className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">clamp</span>
         </div>
-        <div className="flex items-center gap-8">
+        <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 w-full md:w-auto">
           <div className="hidden md:flex gap-8">
             {/* <div className="relative group">
               <span className="text-gray-200 hover:text-white cursor-pointer">Features</span>
@@ -41,13 +41,13 @@ export default async function HomePage() {
               Pricing
             </Link> */}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 w-full md:w-auto justify-center">
             <Link href="/login" className="text-gray-200 hover:text-white">
               Log in
             </Link>
             <Link
               href="/register"
-              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-2.5 rounded-full font-medium transition-all duration-200 transform hover:scale-105"
+              className="w-full md:w-auto bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-2.5 rounded-full font-medium transition-all duration-200 transform hover:scale-105 text-center"
             >
               Get Started
             </Link>
@@ -56,31 +56,31 @@ export default async function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-6 pt-20 pb-32">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          <div className="space-y-8">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 pt-12 md:pt-20 pb-24 md:pb-32">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-16 items-center">
+          <div className="space-y-6 md:space-y-8 text-center lg:text-left">
             {/* Feature announcement button */}
-            <Link href="/features" className="inline-flex items-center px-6 py-3 rounded-full bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30 text-gray-200 hover:text-white transition-all duration-200 transform hover:scale-105 hover:border-purple-500/50 group">
-              <span className="text-lg">Introducing authenticated role testing</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <Link href="/features" className="inline-flex items-center px-4 md:px-6 py-2 md:py-3 rounded-full bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30 text-gray-200 hover:text-white transition-all duration-200 transform hover:scale-105 hover:border-purple-500/50 group text-sm md:text-base">
+              <span>Introducing authenticated role testing</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
             
             {/* Main Heading */}
-            <h1 className="text-7xl font-bold leading-tight text-white">
+            <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold leading-tight text-white">
               Test your RLS
               <br />
               before hackers do
             </h1>
 
             {/* Subheading */}
-            <p className="text-2xl text-gray-300 max-w-xl leading-relaxed">
+            <p className="text-lg md:text-xl lg:text-2xl text-gray-300 max-w-xl mx-auto lg:mx-0 leading-relaxed">
               Automatically generate and run attack vectors against your database's Row Level Security policies to find vulnerabilities before they're exploited.
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-6 pt-8">
+            <div className="flex flex-col sm:flex-row gap-4 md:gap-6 justify-center lg:justify-start">
               <Link
                 href="/register"
                 className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-4 rounded-full font-medium transition-all duration-200 transform hover:scale-105 text-center text-lg shadow-lg shadow-purple-500/25"
@@ -97,7 +97,7 @@ export default async function HomePage() {
           </div>
           
           {/* 3D Visual Element */}
-          <div className="relative">
+          <div className="relative mt-8 lg:mt-0">
             <div className="w-full aspect-video relative rounded-2xl overflow-hidden border border-purple-500/20 shadow-2xl shadow-purple-500/10 transform hover:scale-[1.02] transition-all duration-300">
               <div className="absolute inset-0 bg-gradient-to-tr from-purple-900/20 to-transparent pointer-events-none z-10"></div>
               <iframe
@@ -113,19 +113,19 @@ export default async function HomePage() {
       </div>
 
       {/* How It Works Section */}
-      <div id="how-it-works" className="py-32 border-t border-gray-800 scroll-mt-20">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <div className="mb-16 max-w-3xl mx-auto">
-            <h2 className="text-5xl font-bold mb-6 text-white">
+      <div id="how-it-works" className="py-16 md:py-32 border-t border-gray-800 scroll-mt-20">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 text-center">
+          <div className="mb-12 md:mb-16 max-w-3xl mx-auto">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6 text-white">
               Secure your data <span className="text-purple-500">today</span>
             </h2>
-            <p className="text-xl text-gray-400">
+            <p className="text-base md:text-xl text-gray-400">
               Our platform automatically generates attack vectors to test your database's Row Level Security policies, helping you identify and fix vulnerabilities before they can be exploited.
             </p>
           </div>
 
           {/* Process Steps */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-12 md:mb-16">
             {[1, 2, 3].map((step, index) => (
               <div key={index} className="relative group h-full">
                 <div className="relative bg-transparent rounded-xl p-8 text-left border border-white/20 animate-border-travel h-full flex flex-col">
@@ -147,7 +147,7 @@ export default async function HomePage() {
 
           {/* Code Example */}
           <div className="relative bg-[#0c1221] border border-[#1e293b] rounded-xl overflow-hidden max-w-4xl mx-auto animate-border-travel">
-            <div className="flex items-center px-4 py-3 border-b border-[#1e293b] bg-[#0f172a]">
+            <div className="flex items-center px-3 md:px-4 py-2 md:py-3 border-b border-[#1e293b] bg-[#0f172a] overflow-x-auto">
               <div className="flex space-x-2">
                 <div className="w-3 h-3 rounded-full bg-[#64748b]"></div>
                 <div className="w-3 h-3 rounded-full bg-[#64748b]"></div>
@@ -162,7 +162,7 @@ export default async function HomePage() {
               {/* Original Policy */}
               <div className="p-6 text-left overflow-x-auto">
                 <div className="mb-4 flex items-center">
-                  <div className="w-6 h-6 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mr-2">
+                  <div className="w-6 h-6 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mr-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -186,7 +186,7 @@ WITH CHECK (auth.uid() = user_id);
               {/* Improved Policy */}
               <div className="p-6 text-left overflow-x-auto bg-[#0a1020]">
                 <div className="mb-4 flex items-center">
-                  <div className="w-6 h-6 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mr-2">
+                  <div className="w-6 h-6 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center mr-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
@@ -214,7 +214,7 @@ WITH CHECK (auth.uid() = user_id);
             {/* Attack Vector */}
             <div className="border-t border-[#1e293b] p-6 bg-[#0a1020]">
               <div className="mb-3 flex items-center">
-                <div className="w-6 h-6 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mr-2">
+                <div className="w-6 h-6 rounded-full bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center mr-2">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
@@ -235,19 +235,19 @@ WHERE user_id IN (
       </div>
 
       {/* Features Section */}
-      <div className="py-32 border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="mb-16 max-w-3xl">
-            <h2 className="text-5xl font-bold mb-6 text-white">
+      <div className="py-16 md:py-32 border-t border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <div className="mb-12 md:mb-16 max-w-3xl">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6 text-white">
               Complete security testing
             </h2>
-            <p className="text-xl text-gray-400">
+            <p className="text-base md:text-xl text-gray-400">
               Our platform offers comprehensive testing for both anonymous and authenticated user scenarios, helping you identify vulnerabilities that traditional testing might miss.
             </p>
           </div>
 
           {/* Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             {/* Anonymous Testing Card */}
             <div className="relative bg-transparent rounded-xl p-8 text-left border border-white/20 animate-border-travel">
               <div className="flex items-center mb-6">
@@ -309,24 +309,21 @@ WHERE user_id IN (
         </div>
       </div>
 
-      {/* Pricing Section */}
-      
-
       {/* Policy Editor Section */}
-      <div className="py-32 border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <div className="mb-16 max-w-3xl mx-auto">
-            <h2 className="text-5xl font-bold mb-6 text-white">
+      <div className="py-16 md:py-32 border-t border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 text-center">
+          <div className="mb-12 md:mb-16 max-w-3xl mx-auto">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6 text-white">
               Fix vulnerabilities
             </h2>
-            <p className="text-xl text-gray-400">
+            <p className="text-base md:text-xl text-gray-400">
               Our platform not only identifies security issues but also suggests improved RLS policies to fix the vulnerabilities, complete with explanations of why they work.
             </p>
           </div>
 
           {/* Editor Preview */}
           <div className="relative bg-transparent border border-white/20 rounded-xl overflow-hidden max-w-4xl mx-auto animate-border-travel">
-            <div className="flex justify-between items-center px-6 py-3 border-b border-white/10 bg-[#0a1020]/50">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-3 md:p-4 border-b border-white/10 bg-[#0a1020]/50 gap-3 md:gap-0">
               <div className="flex items-center">
                 <button className="px-3 py-1 text-sm text-gray-400 bg-[#0a1020] rounded-md mr-2">
                   Test Results
@@ -343,7 +340,7 @@ WHERE user_id IN (
                 </button>
               </div>
             </div>
-            <div className="p-6 text-left">
+            <div className="p-3 md:p-6 text-left overflow-x-auto">
               <div className="grid grid-cols-1 gap-4">
                 <div className="bg-[#0a1020]/50 rounded-lg p-4">
                   <div className="flex items-center mb-4">
@@ -385,18 +382,20 @@ WHERE user_id IN (
         </div>
       </div>
 
-      <div className="py-32 border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <div className="mb-16 max-w-3xl mx-auto">
-            <h2 className="text-5xl font-bold mb-6 text-white">
+      {/* Pricing Section */}
+      <div className="py-16 md:py-32 border-t border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 text-center">
+          <div className="mb-12 md:mb-16 max-w-3xl mx-auto">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6 text-white">
               Pricing
             </h2>
-            <p className="text-xl text-gray-400">
+            <p className="text-base md:text-xl text-gray-400">
               Start securing your database for free. Upgrade to Pro for advanced security features and authenticated role testing.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+          {/* Pricing Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             {/* Free Plan */}
             <div className="relative bg-[#0a1020] rounded-2xl p-8 text-left border border-white/10">
               <div className="mb-6">
@@ -501,8 +500,8 @@ WHERE user_id IN (
             </div>
           </div>
 
-          <div className="mt-16 max-w-3xl mx-auto text-center">
-            <p className="text-gray-400">
+          <div className="mt-12 md:mt-16 max-w-3xl mx-auto text-center">
+            <p className="text-sm md:text-base text-gray-400">
               All plans include unlimited RLS policy testing and generated fixes.
             </p>
           </div>
@@ -510,12 +509,12 @@ WHERE user_id IN (
       </div>
 
       {/* CTA Section */}
-      <div className="py-32 border-t border-gray-800">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="text-5xl font-bold mb-6 text-white">
+      <div className="py-16 md:py-32 border-t border-gray-800">
+        <div className="max-w-3xl mx-auto px-4 md:px-6 text-center">
+          <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6 text-white">
             Secure your database today
           </h2>
-          <p className="text-xl text-gray-400 mb-10">
+          <p className="text-base md:text-xl text-gray-400 mb-8 md:mb-10">
             Don't wait for a breach to discover your RLS vulnerabilities.
             <br />
             Start testing your policies now, free for anonymous role testing.

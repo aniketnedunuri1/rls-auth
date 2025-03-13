@@ -17,37 +17,37 @@ export default async function HomePage() {
       {/* Navigation */}
       <nav className="flex justify-between items-center py-8 px-6 max-w-7xl mx-auto">
         <div className="flex items-center">
-          <span className="text-2xl font-bold">clamp</span>
+          <span className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">clamp</span>
         </div>
         <div className="flex items-center gap-8">
           <div className="hidden md:flex gap-8">
-            <div className="relative group">
-              <span className="text-gray-300 hover:text-white cursor-pointer">Features</span>
-              <span className="ml-1 text-gray-500">▾</span>
+            {/* <div className="relative group">
+              <span className="text-gray-200 hover:text-white cursor-pointer">Features</span>
+              <span className="ml-1 text-gray-400">▾</span>
             </div>
             <div className="relative group">
-              <span className="text-gray-300 hover:text-white cursor-pointer">Company</span>
-              <span className="ml-1 text-gray-500">▾</span>
+              <span className="text-gray-200 hover:text-white cursor-pointer">Company</span>
+              <span className="ml-1 text-gray-400">▾</span>
             </div>
             <div className="relative group">
-              <span className="text-gray-300 hover:text-white cursor-pointer">Resources</span>
-              <span className="ml-1 text-gray-500">▾</span>
+              <span className="text-gray-200 hover:text-white cursor-pointer">Resources</span>
+              <span className="ml-1 text-gray-400">▾</span>
             </div>
             <div className="relative group">
-              <span className="text-gray-300 hover:text-white cursor-pointer">Docs</span>
-              <span className="ml-1 text-gray-500">▾</span>
-            </div>
-            <Link href="/pricing" className="text-gray-300 hover:text-white">
+              <span className="text-gray-200 hover:text-white cursor-pointer">Docs</span>
+              <span className="ml-1 text-gray-400">▾</span>
+            </div> */}
+            {/* <Link href="/pricing" className="text-gray-200 hover:text-white">
               Pricing
-            </Link>
+            </Link> */}
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/login" className="text-gray-300 hover:text-white">
-              Sign in
+            <Link href="/login" className="text-gray-200 hover:text-white">
+              Log in
             </Link>
             <Link
-              href="/login"
-              className="bg-white text-black px-4 py-2 rounded-full font-medium hover:bg-gray-200 transition-colors"
+              href="/register"
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-2.5 rounded-full font-medium transition-all duration-200 transform hover:scale-105"
             >
               Get Started
             </Link>
@@ -58,38 +58,38 @@ export default async function HomePage() {
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-6 pt-20 pb-32">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Feature announcement button */}
-            <Link href="/features" className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-purple-800/20 to-blue-800/20 border border-purple-700/30 text-gray-300 hover:text-white transition-colors mb-6">
-              <span>Introducing authenticated role testing</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <Link href="/features" className="inline-flex items-center px-6 py-3 rounded-full bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30 text-gray-200 hover:text-white transition-all duration-200 transform hover:scale-105 hover:border-purple-500/50 group">
+              <span className="text-lg">Introducing authenticated role testing</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
             
-          {/* Main Heading */}
-          <h1 className="text-6xl font-bold leading-tight">
+            {/* Main Heading */}
+            <h1 className="text-7xl font-bold leading-tight text-white">
               Test your RLS
-            <br />
+              <br />
               before hackers do
-          </h1>
+            </h1>
 
-          {/* Subheading */}
-            <p className="text-xl text-gray-400 max-w-xl">
+            {/* Subheading */}
+            <p className="text-2xl text-gray-300 max-w-xl leading-relaxed">
               Automatically generate and run attack vectors against your database's Row Level Security policies to find vulnerabilities before they're exploited.
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-8">
+            <div className="flex flex-col sm:flex-row gap-6 pt-8">
               <Link
-                href="/login"
-                className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-gray-200 transition-colors text-center"
+                href="/register"
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-4 rounded-full font-medium transition-all duration-200 transform hover:scale-105 text-center text-lg shadow-lg shadow-purple-500/25"
               >
                 Test Your Policies
               </Link>
               <Link
-                href="/docs"
-                className="border border-gray-700 text-gray-300 hover:text-white px-6 py-3 rounded-full font-medium transition-colors text-center"
+                href="#how-it-works"
+                className="border-2 border-purple-500/30 hover:border-purple-500/50 text-gray-200 hover:text-white px-8 py-4 rounded-full font-medium transition-all duration-200 transform hover:scale-105 text-center text-lg"
               >
                 How It Works
               </Link>
@@ -98,7 +98,8 @@ export default async function HomePage() {
           
           {/* 3D Visual Element */}
           <div className="relative">
-            <div className="w-full aspect-video relative rounded-xl overflow-hidden border border-white/20 animate-border-travel">
+            <div className="w-full aspect-video relative rounded-2xl overflow-hidden border border-purple-500/20 shadow-2xl shadow-purple-500/10 transform hover:scale-[1.02] transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-tr from-purple-900/20 to-transparent pointer-events-none z-10"></div>
               <iframe
                 src="https://www.youtube.com/embed/PL4UlcXufAo?autoplay=1&mute=1&loop=1&playlist=PL4UlcXufAo&controls=1"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -112,10 +113,10 @@ export default async function HomePage() {
       </div>
 
       {/* How It Works Section */}
-      <div className="py-32 border-t border-gray-800">
+      <div id="how-it-works" className="py-32 border-t border-gray-800 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <div className="mb-16 max-w-3xl mx-auto">
-            <h2 className="text-5xl font-bold mb-6">
+            <h2 className="text-5xl font-bold mb-6 text-white">
               Secure your data <span className="text-purple-500">today</span>
             </h2>
             <p className="text-xl text-gray-400">
@@ -129,7 +130,7 @@ export default async function HomePage() {
               <div key={index} className="relative group h-full">
                 <div className="relative bg-transparent rounded-xl p-8 text-left border border-white/20 animate-border-travel h-full flex flex-col">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center mb-6 text-xl font-bold">{step}</div>
-                  <h3 className="text-xl font-semibold mb-4">
+                  <h3 className="text-xl font-semibold mb-4 text-white">
                     {step === 1 ? "Input Your Policies" : 
                      step === 2 ? "Generate Attack Vectors" : 
                      "Get Actionable Results"}
@@ -166,7 +167,7 @@ export default async function HomePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </div>
-                  <h3 className="text-sm font-medium text-[#e2e8f0]">Vulnerable Policy</h3>
+                  <h3 className="text-sm font-medium text-white">Vulnerable Policy</h3>
                 </div>
                 <pre className="text-xs text-[#94a3b8] bg-[#0f172a] p-4 rounded-lg">
                   <code>{`-- Original RLS policy
@@ -190,7 +191,7 @@ WITH CHECK (auth.uid() = user_id);
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <h3 className="text-sm font-medium text-[#e2e8f0]">Clamp-Improved Policy</h3>
+                  <h3 className="text-sm font-medium text-white">Clamp-Improved Policy</h3>
                 </div>
                 <pre className="text-xs text-[#94a3b8] bg-[#0f172a] p-4 rounded-lg">
                   <code>{`-- Clamp-recommended fix
@@ -218,7 +219,7 @@ WITH CHECK (auth.uid() = user_id);
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                 </div>
-                <h3 className="text-sm font-medium text-[#e2e8f0]">Detected Attack Vector</h3>
+                <h3 className="text-sm font-medium text-white">Detected Attack Vector</h3>
               </div>
               <pre className="text-xs text-[#94a3b8] bg-[#0f172a] p-4 rounded-lg">
                 <code>{`-- Clamp-generated test query that would bypass the original policy
@@ -237,10 +238,8 @@ WHERE user_id IN (
       <div className="py-32 border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-16 max-w-3xl">
-            <h2 className="text-5xl font-bold mb-6">
-              Complete
-              <br />
-              security testing
+            <h2 className="text-5xl font-bold mb-6 text-white">
+              Complete security testing
             </h2>
             <p className="text-xl text-gray-400">
               Our platform offers comprehensive testing for both anonymous and authenticated user scenarios, helping you identify vulnerabilities that traditional testing might miss.
@@ -257,7 +256,7 @@ WHERE user_id IN (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-semibold">Anonymous Role Testing</h3>
+                <h3 className="text-2xl font-semibold text-white">Anonymous Role Testing</h3>
               </div>
               <p className="text-gray-400 mb-6">
                 Test how your database responds to unauthenticated users. Identify if public data is properly protected and if sensitive information is accessible.
@@ -286,7 +285,7 @@ WHERE user_id IN (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-semibold">Authenticated Role Testing</h3>
+                <h3 className="text-2xl font-semibold text-white">Authenticated Role Testing</h3>
               </div>
               <p className="text-gray-400 mb-6">
                 Simulate authenticated users attempting to access data they shouldn't have permission to view, modify, or delete. Test multi-tenant data isolation.
@@ -310,12 +309,15 @@ WHERE user_id IN (
         </div>
       </div>
 
+      {/* Pricing Section */}
+      
+
       {/* Policy Editor Section */}
       <div className="py-32 border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <div className="mb-16 max-w-3xl mx-auto">
-            <h2 className="text-5xl font-bold mb-6">
-              Fix vulnerabilities with AI assistance
+            <h2 className="text-5xl font-bold mb-6 text-white">
+              Fix vulnerabilities
             </h2>
             <p className="text-xl text-gray-400">
               Our platform not only identifies security issues but also suggests improved RLS policies to fix the vulnerabilities, complete with explanations of why they work.
@@ -348,7 +350,7 @@ WHERE user_id IN (
                     <div className="w-6 h-6 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mr-2">
                       <span className="text-red-500 text-xs">!</span>
                     </div>
-                    <div className="text-red-400 font-medium">Critical: Data Leakage in User Profiles</div>
+                    <div className="text-red-400 font-medium text-white">Critical: Data Leakage in User Profiles</div>
                   </div>
                   
                   <div className="mb-4">
@@ -383,10 +385,134 @@ WHERE user_id IN (
         </div>
       </div>
 
+      <div className="py-32 border-t border-gray-800">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <div className="mb-16 max-w-3xl mx-auto">
+            <h2 className="text-5xl font-bold mb-6 text-white">
+              Pricing
+            </h2>
+            <p className="text-xl text-gray-400">
+              Start securing your database for free. Upgrade to Pro for advanced security features and authenticated role testing.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {/* Free Plan */}
+            <div className="relative bg-[#0a1020] rounded-2xl p-8 text-left border border-white/10">
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-white mb-2">Free</h3>
+                <p className="text-gray-400">Perfect for getting started</p>
+              </div>
+              <div className="mb-8">
+                <div className="flex items-baseline">
+                  <span className="text-5xl font-bold text-white">$0</span>
+                  <span className="text-gray-400 ml-2">/month</span>
+                </div>
+              </div>
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-center text-gray-300">
+                  <svg className="h-5 w-5 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Generate anonymous role tests
+                </li>
+                <li className="flex items-center text-gray-300">
+                  <svg className="h-5 w-5 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Run anonymous role tests
+                </li>
+                <li className="flex items-center text-gray-400">
+                  <svg className="h-5 w-5 text-gray-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span className="line-through">Authenticated role tests</span>
+                </li>
+                <li className="flex items-center text-gray-400">
+                  <svg className="h-5 w-5 text-gray-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span className="line-through">Advanced security features</span>
+                </li>
+              </ul>
+              <Link
+                href="/login"
+                className="block w-full py-3 px-6 text-center rounded-full border-2 border-purple-500/30 hover:border-purple-500/50 text-white font-medium transition-all duration-200 hover:scale-105"
+              >
+                Get Started
+              </Link>
+            </div>
+
+            {/* Pro Plan */}
+            <div className="relative bg-gradient-to-b from-purple-900/50 to-[#0a1020] rounded-2xl p-8 text-left border-2 border-purple-500/30">
+              <div className="absolute top-0 right-0 mt-4 mr-4">
+                <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm py-1 px-3 rounded-full">
+                  Popular
+                </span>
+              </div>
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
+                <p className="text-gray-400">For those who need more security</p>
+              </div>
+              <div className="mb-8">
+                <div className="flex items-baseline">
+                  <span className="text-5xl font-bold text-white">$15</span>
+                  <span className="text-gray-400 ml-2">/month</span>
+                </div>
+              </div>
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-center text-gray-300">
+                  <svg className="h-5 w-5 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Generate anonymous role tests
+                </li>
+                <li className="flex items-center text-gray-300">
+                  <svg className="h-5 w-5 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Run anonymous role tests
+                </li>
+                <li className="flex items-center text-gray-300">
+                  <svg className="h-5 w-5 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Generate authenticated role tests
+                </li>
+                <li className="flex items-center text-gray-300">
+                  <svg className="h-5 w-5 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Run authenticated role tests
+                </li>
+                <li className="flex items-center text-gray-300">
+                  <svg className="h-5 w-5 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Advanced security features
+                </li>
+              </ul>
+              <Link
+                href="/register"
+                className="block w-full py-3 px-6 text-center rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium transition-all duration-200 hover:scale-105 shadow-lg shadow-purple-500/25"
+              >
+                Get Started
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-16 max-w-3xl mx-auto text-center">
+            <p className="text-gray-400">
+              All plans include unlimited RLS policy testing and generated fixes.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* CTA Section */}
       <div className="py-32 border-t border-gray-800">
         <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="text-5xl font-bold mb-6">
+          <h2 className="text-5xl font-bold mb-6 text-white">
             Secure your database today
           </h2>
           <p className="text-xl text-gray-400 mb-10">
@@ -396,28 +522,21 @@ WHERE user_id IN (
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/login"
-              className="bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-gray-200 transition-colors text-center"
+              href="/register"
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-4 rounded-full font-medium transition-all duration-200 transform hover:scale-105 text-center text-lg shadow-lg shadow-purple-500/25"
             >
-              Start Testing for Free
+              Start Clamp for Free
             </Link>
-            <Link
-              href="/docs"
-              className="border border-gray-700 text-gray-300 hover:text-white px-8 py-4 rounded-full font-medium transition-colors text-center"
-            >
-              View Documentation
-            </Link>
-          </div>
           </div>
         </div>
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-gray-800 py-16">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
+          {/* <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
             <div className="col-span-2 lg:col-span-1">
               <div className="flex items-center mb-6">
-                <span className="text-2xl font-bold">clamp</span>
+                <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">clamp</span>
               </div>
               <p className="text-gray-400 mb-6">
                 Secure your database with confidence using our RLS policy testing platform.
@@ -440,8 +559,6 @@ WHERE user_id IN (
               <ul className="space-y-3">
                 <li><a href="#" className="text-gray-400 hover:text-white">Features</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white">Pricing</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white">Security</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white">Changelog</a></li>
               </ul>
             </div>
             <div>
@@ -471,15 +588,14 @@ WHERE user_id IN (
                 <li><a href="#" className="text-gray-400 hover:text-white">Licenses</a></li>
               </ul>
             </div>
-          </div>
+          </div> */}
           <div className="mt-12 pt-8 border-t border-gray-800 text-center">
             <p className="text-gray-400 text-sm">
               &copy; {new Date().getFullYear()} Clamp, Inc. All rights reserved.
             </p>
           </div>
-        </div>
+
       </footer>
     </div>
   );
 }
-

@@ -19,11 +19,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   store.dispatch(setProjects(projects));
   
   return (
-    <div className="flex h-screen bg-background">
-      <aside className="w-64 bg-card border-r">
+    <div className="flex h-screen bg-[#0a0a0a] text-white">
+      <aside className="w-64 bg-[#0f0f0f] border-r border-white/5">
         <DashboardNav /> 
       </aside>
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto p-6">
         {/* Pass session to children if needed */}
         {children}
       </main>

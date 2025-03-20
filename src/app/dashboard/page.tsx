@@ -66,14 +66,13 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background p-8">
+    <div className="min-h-screen">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-7xl font-bold tracking-tighter mb-4">
-            <span>clamp</span>
-            <span className="text-orange-500">.</span>
+          <h1 className="text-5xl font-bold tracking-tight mb-4">
+            <span className="bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">clamp</span>
           </h1>
-          <p className="text-xl text-muted-foreground">
+          <p className="text-lg text-gray-400">
             Automated RLS policy testing and validation
           </p>
         </div>
@@ -81,19 +80,21 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           {/* Steps Section */}
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold mb-6">How It Works</h2>
+            <h2 className="text-2xl font-semibold mb-6 tracking-tight">How It Works</h2>
             <div className="space-y-6">
               {steps.map((step, index) => (
-                <Card key={index} className="border-l-4 border-l-primary">
-                  <CardContent className="flex items-start gap-4 p-6">
+                <Card key={index} className="border border-white/10 bg-[#0f0f0f] rounded-md">
+                  <CardContent className="flex items-start gap-4 p-5">
                     <div className="shrink-0">
-                      {step.icon}
+                      <div className="w-10 h-10 rounded-md bg-purple-600/10 flex items-center justify-center">
+                        {step.icon}
+                      </div>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg mb-1">
+                      <h3 className="font-semibold text-base mb-1">
                         {index + 1}. {step.title}
                       </h3>
-                      <p className="text-muted-foreground">
+                      <p className="text-gray-400 text-sm">
                         {step.description}
                       </p>
                     </div>
@@ -105,14 +106,14 @@ export default function DashboardPage() {
 
           {/* Create Project Card */}
           <div className="flex items-center justify-center h-full">
-            <Card className="w-full max-w-md p-6">
-              <CardHeader>
-                <CardTitle className="text-2xl font-bold">Get started</CardTitle>
-                <CardDescription className="mt-2 text-gray-600">
+            <Card className="w-full max-w-md p-5 border border-white/10 bg-[#0f0f0f] rounded-md">
+              <CardHeader className="px-0 pt-0">
+                <CardTitle className="text-xl font-bold">Get started</CardTitle>
+                <CardDescription className="mt-2 text-gray-400">
                   Create a new project to begin securing your database.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="mt-4">
+              <CardContent className="mt-4 px-0">
                 <form onSubmit={handleCreateProject}>
                   <Input
                     name="projectName"
@@ -121,12 +122,13 @@ export default function DashboardPage() {
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
                     disabled={isLoading}
+                    className="bg-[#0a0a0a] border-white/10 focus:border-purple-500/50 rounded-md"
                   />
                   <CardFooter className="mt-4 px-0">
                     <Button 
                       type="submit" 
                       disabled={isLoading}
-                      className="w-full"
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-md"
                     >
                       {isLoading ? (
                         <>

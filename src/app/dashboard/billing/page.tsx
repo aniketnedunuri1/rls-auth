@@ -133,50 +133,98 @@ export default function BillingPage() {
   };
 
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-8">Subscription Management</h1>
+    <div className="max-w-5xl mx-auto">
+      <h1 className="text-3xl font-bold mb-8 tracking-tight">Subscription Management</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Free Plan</CardTitle>
-            <CardDescription>Basic access with limited features</CardDescription>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="border border-white/10 bg-[#0f0f0f] rounded-md">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">Free Plan</CardTitle>
+            <CardDescription className="text-gray-400 text-sm">Basic access with limited features</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">$0</p>
-            <ul className="mt-4 space-y-2">
-              <li>✅ Generate anonymous role tests</li>
-              <li>✅ Run anonymous role tests</li>
-              <li>❌ Authenticated role tests</li>
-              <li>❌ Advanced security features</li>
+            <p className="text-3xl font-bold mb-4">$0</p>
+            <ul className="mt-4 space-y-3 text-sm">
+              <li className="flex items-center">
+                <svg className="h-5 w-5 text-purple-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Generate anonymous role tests
+              </li>
+              <li className="flex items-center">
+                <svg className="h-5 w-5 text-purple-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Run anonymous role tests
+              </li>
+              <li className="flex items-center text-gray-500">
+                <svg className="h-5 w-5 text-gray-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span className="line-through">Authenticated role tests</span>
+              </li>
+              <li className="flex items-center text-gray-500">
+                <svg className="h-5 w-5 text-gray-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span className="line-through">Advanced security features</span>
+              </li>
             </ul>
           </CardContent>
           <CardFooter>
-            <Button variant="outline" disabled={!subscription.hasActiveSubscription} className="w-full">
+            <Button 
+              disabled={!subscription.hasActiveSubscription} 
+              className="w-full border border-white/10 hover:border-white/20 text-white rounded-md bg-transparent"
+            >
               {!subscription.hasActiveSubscription ? "Current Plan" : "Downgrade"}
             </Button>
           </CardFooter>
         </Card>
 
-        <Card className="border-2 border-primary">
-          <CardHeader>
-            <CardTitle>Pro Plan</CardTitle>
-            <CardDescription>Full access to all features</CardDescription>
+        <Card className="border border-purple-500/20 bg-[#0f0f0f] rounded-md">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">Pro Plan</CardTitle>
+            <CardDescription className="text-gray-400 text-sm">Full access to all features</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">$15<span className="text-sm font-normal">/month</span></p>
-            <ul className="mt-4 space-y-2">
-              <li>✅ Generate anonymous role tests</li>
-              <li>✅ Run anonymous role tests</li>
-              <li>✅ Generate authenticated role tests</li>
-              <li>✅ Run authenticated role tests</li>
-              <li>✅ Advanced security features</li>
+            <p className="text-3xl font-bold mb-4">$15<span className="text-sm font-normal text-gray-400 ml-1">/month</span></p>
+            <ul className="mt-4 space-y-3 text-sm">
+              <li className="flex items-center">
+                <svg className="h-5 w-5 text-purple-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Generate anonymous role tests
+              </li>
+              <li className="flex items-center">
+                <svg className="h-5 w-5 text-purple-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Run anonymous role tests
+              </li>
+              <li className="flex items-center">
+                <svg className="h-5 w-5 text-purple-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Generate authenticated role tests
+              </li>
+              <li className="flex items-center">
+                <svg className="h-5 w-5 text-purple-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Run authenticated role tests
+              </li>
+              <li className="flex items-center">
+                <svg className="h-5 w-5 text-purple-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Advanced security features
+              </li>
             </ul>
           </CardContent>
           <CardFooter>
             {subscription.hasActiveSubscription ? (
               <Button 
-                variant="outline" 
+                className="w-full border border-white/10 hover:border-white/20 text-white rounded-md bg-transparent"
                 className="w-full"
                 onClick={handleManageSubscription}
                 disabled={loading}
@@ -196,7 +244,7 @@ export default function BillingPage() {
                   console.log('Button clicked directly');
                   handleSubscribe();
                 }} 
-                className="w-full" 
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-md" 
                 disabled={loading}
               >
                 {loading ? "Processing..." : "Subscribe Now"}
@@ -207,20 +255,20 @@ export default function BillingPage() {
       </div>
 
       {subscription.hasActiveSubscription && (
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Pro Subscription</CardTitle>
+        <div className="mt-10">
+          <Card className="border border-white/10 bg-[#0f0f0f] rounded-md">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl">Your Pro Subscription</CardTitle>
             </CardHeader>
             <CardContent>
               <p>You currently have an active Pro subscription with access to all features.</p>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-sm text-gray-400">
                 You can manage your subscription, update payment methods, or cancel at any time.
               </p>
             </CardContent>
             <CardFooter>
               <Button 
-                variant="default" 
+                className="bg-purple-600 hover:bg-purple-700 text-white rounded-md flex items-center gap-2" 
                 onClick={handleManageSubscription}
                 disabled={loading}
               >
@@ -230,7 +278,10 @@ export default function BillingPage() {
                     Processing...
                   </>
                 ) : (
-                  "Manage Subscription"
+                  <>
+                    <CreditCard className="h-4 w-4" />
+                    Manage Subscription
+                  </>
                 )}
               </Button>
             </CardFooter>
